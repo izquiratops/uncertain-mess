@@ -26,8 +26,11 @@ const _migrations: readonly SqliteMigration[] = [
   },
 ];
 
-export function migrateSqlite(db: DatabaseSync): void {
-  for (const [index, migration] of _migrations.entries()) {
+export function migrateSqlite(
+  db: DatabaseSync,
+  migrations: readonly SqliteMigration[] = _migrations,
+): void {
+  for (const [index, migration] of migrations.entries()) {
     if (migration.version !== index + 1) {
       throw new Error('SQLite migrations must be consecutively numbered from 1');
     }
@@ -37,10 +40,10 @@ export function migrateSqlite(db: DatabaseSync): void {
   try {
     const row = db.prepare('PRAGMA user_version').get();
     const currentVersion = Number(row?.user_version);
-    if (currentVersion > _migrations.length) {
-      throw new Error(`Database schema version ${currentVersion} is newer than supported version ${_migrations.length}`);
+    if (currentVersion > migrations.length) {
+      throw new Error(`Database schema version ${currentVersion} is newer than supported version ${migrations.length}`);
     }
-    for (const migration of _migrations.slice(currentVersion)) {
+    for (const migration of migrations.slice(currentVersion)) {
       migration.up(db);
       db.exec(`PRAGMA user_version = ${migration.version}`);
     }
