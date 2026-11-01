@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { migrateSqlite } from './sqlite-migrations.js';
 import {
   WorkflowEventSchema,
   WorkflowStateSchema,
@@ -26,23 +27,13 @@ export class SqliteRunRepository {
 
   constructor(path: string) {
     this.db = new DatabaseSync(path);
-    this.db.exec(`
-      PRAGMA foreign_keys = ON;
-      PRAGMA busy_timeout = 5000;
-      CREATE TABLE IF NOT EXISTS runs (
-        id TEXT PRIMARY KEY, issue_id TEXT NOT NULL, version INTEGER NOT NULL,
-        updated_at TEXT NOT NULL, state TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS events (
-        run_id TEXT NOT NULL REFERENCES runs(id), version INTEGER NOT NULL,
-        event TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (run_id, version)
-      );
-      CREATE TABLE IF NOT EXISTS artifacts (
-        run_id TEXT NOT NULL REFERENCES runs(id), name TEXT NOT NULL,
-        version INTEGER NOT NULL, content TEXT NOT NULL,
-        PRIMARY KEY (run_id, name, version)
-      );
-    `);
+    try {
+      this.db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+      migrateSqlite(this.db);
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
 
   close(): void {
