@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import {
   mkdtempSync,
   rmSync,
@@ -10,6 +11,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { URL } from 'node:url';
 import { GitWorktreeManager } from '../dist/index.js';
 
 // Create an isolated repository and remove it after the test.
@@ -92,6 +94,57 @@ test('refuses to adopt an externally created worktree', (t) => {
 }),
     /ownership does not match/,
   );
+});
+
+test('locks issue, branch and path for the whole operation and releases on failure', async (t) => {
+  const { root, repo } = fixture(t);
+  const manager = new GitWorktreeManager(repo);
+  const request = {
+ issueId: 'ABC-1', branch: 'issue/ABC-1', path: join(root, 'worktree') 
+};
+  await assert.rejects(manager.withWorktree(request, async () => {
+    for (const other of [
+      request,
+      {
+ ...request, branch: 'other', path: join(root, 'other') 
+},
+      {
+ ...request, issueId: 'ABC-2', path: join(root, 'other') 
+},
+      {
+ ...request, issueId: 'ABC-2', branch: 'other' 
+},
+    ]) {
+      assert.throws(() => new GitWorktreeManager(repo).ensure(other), /acquire worktree lock/);
+    }
+    throw new Error('operation failed');
+  }), /operation failed/);
+  assert.equal(manager.ensure(request).reused, true);
+});
+
+test('releases locks after a process is killed', async (t) => {
+  const { root, repo } = fixture(t);
+  const request = {
+ issueId: 'ABC-1', branch: 'issue/ABC-1', path: join(root, 'worktree') 
+};
+  const moduleUrl = new URL('../dist/index.js', import.meta.url).href;
+  const script = `
+    import { GitWorktreeManager } from ${JSON.stringify(moduleUrl)};
+    const manager = new GitWorktreeManager(${JSON.stringify(repo)});
+    await manager.withWorktree(${JSON.stringify(request)}, async () => {
+      console.log('locked');
+      await new Promise(() => setInterval(() => {}, 1000));
+    });
+  `;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
+    stdio: ['pipe', 'pipe', 'ignore'],
+  });
+  t.after(() => child.kill('SIGKILL'));
+  await once(child.stdout, 'data');
+  assert.throws(() => new GitWorktreeManager(repo).ensure(request), /acquire worktree lock/);
+  child.kill('SIGKILL');
+  await once(child, 'exit');
+  assert.equal(new GitWorktreeManager(repo).ensure(request).reused, true);
 });
 
 test('resolves symlinked paths and refuses missing worktrees', (t) => {

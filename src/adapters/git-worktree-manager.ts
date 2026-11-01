@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
 export interface WorktreeRequest {
   issueId: string;
@@ -34,6 +35,8 @@ function canonicalPath(path: string): string {
   return join(canonicalPath(parent), basename(absolute));
 }
 
+const activeLocks = new Set<DatabaseSync[]>();
+
 /** Manages worktrees without checking out or modifying the main worktree. */
 export class GitWorktreeManager {
   private readonly repository: string;
@@ -49,8 +52,64 @@ export class GitWorktreeManager {
     }).trim();
   }
 
-  /** The caller must serialize operations for the issue and worktree. */
+  /** Hold all locks while using the worktree, including during agent execution. */
+  async withWorktree<T>(
+    request: WorktreeRequest,
+    operation: (worktree: ManagedWorktree) => T | Promise<T>,
+  ): Promise<T> {
+    const release = this.lock(request);
+    try {
+      return await operation(this.ensureUnlocked(request));
+    } finally {
+      release();
+    }
+  }
+
+  /** Ensure a worktree exists; use withWorktree for operations that use it. */
   ensure(request: WorktreeRequest): ManagedWorktree {
+    const release = this.lock(request);
+    try {
+      return this.ensureUnlocked(request);
+    } finally {
+      release();
+    }
+  }
+
+  private lock(request: WorktreeRequest): () => void {
+    const lockDir = join(
+      this.git('rev-parse', '--absolute-git-dir'),
+      'issue-to-pr',
+      'locks',
+    );
+    mkdirSync(lockDir, { recursive: true });
+    const resources = [
+      `issue:${request.issueId}`,
+      `branch:${request.branch}`,
+      `path:${canonicalPath(request.path)}`,
+    ].sort();
+    const databases: DatabaseSync[] = [];
+    try {
+      for (const resource of resources) {
+        const key = createHash('sha256').update(resource).digest('hex');
+        const db = new DatabaseSync(join(lockDir, `${key}.sqlite`));
+        databases.push(db);
+        db.exec('PRAGMA busy_timeout = 0; BEGIN IMMEDIATE');
+      }
+    } catch (error) {
+      for (const db of databases.reverse()) {
+        db.close();
+      }
+      throw new Error('Unable to acquire worktree lock', { cause: error });
+    }
+    activeLocks.add(databases);
+
+    return () => {
+      activeLocks.delete(databases);
+      for (const db of databases.reverse()) db.close();
+    };
+  }
+
+  private ensureUnlocked(request: WorktreeRequest): ManagedWorktree {
     if (!request.issueId.trim()) {
       throw new Error('Issue ID is required');
     }
@@ -97,8 +156,6 @@ export class GitWorktreeManager {
     const byBranch = entries.find(
       (entry) => entry.branch === `refs/heads/${request.branch}`,
     );
-    // Record ownership before creating the worktree, so an interruption after
-    // `git worktree add` cannot make another issue adopt it on recovery.
     const gitDir = this.git('rev-parse', '--absolute-git-dir');
     const ownershipDir = join(gitDir, 'issue-to-pr', 'worktrees');
     const key = createHash('sha256').update(request.branch).digest('hex');
@@ -146,7 +203,9 @@ export class GitWorktreeManager {
     try {
       writeFileSync(ownershipFile, ownership, { flag: 'wx' });
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw error;
+      }
       if (readFileSync(ownershipFile, 'utf8') !== ownership) {
         throw new Error(
           'Worktree ownership does not match the issue and configuration',
