@@ -65,6 +65,35 @@ test('creates and recovers a configured worktree without changing main', (t) => 
   );
 });
 
+test('does not let another issue adopt a worktree after restart', (t) => {
+  const { root, repo } = fixture(t);
+  const request = {
+    issueId: 'ABC-1',
+    branch: 'issue/ABC-1',
+    path: join(root, 'worktree'),
+  };
+  new GitWorktreeManager(repo).ensure(request);
+  assert.throws(
+    () => new GitWorktreeManager(repo).ensure({
+ ...request, issueId: 'ABC-2' 
+}),
+    /ownership does not match/,
+  );
+  assert.equal(new GitWorktreeManager(repo).ensure(request).reused, true);
+});
+
+test('refuses to adopt an externally created worktree', (t) => {
+  const { root, repo, git } = fixture(t);
+  const path = join(root, 'worktree');
+  git('worktree', 'add', '-b', 'issue/ABC-1', path);
+  assert.throws(
+    () => new GitWorktreeManager(repo).ensure({
+ issueId: 'ABC-1', branch: 'issue/ABC-1', path 
+}),
+    /ownership does not match/,
+  );
+});
+
 test('resolves symlinked paths and refuses missing worktrees', (t) => {
   const { root, repo } = fixture(t);
   const alias = join(root, 'alias');

@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, realpathSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
 export interface WorktreeRequest {
@@ -47,10 +54,18 @@ export class GitWorktreeManager {
     if (!request.issueId.trim()) {
       throw new Error('Issue ID is required');
     }
-    if (!request.branch || request.branch === 'main' || request.branch === 'master') {
+    if (
+      !request.branch ||
+      request.branch === 'main' ||
+      request.branch === 'master'
+    ) {
       throw new Error('A feature branch is required');
     }
-    const validatedBranch = this.git('check-ref-format', '--branch', request.branch);
+    const validatedBranch = this.git(
+      'check-ref-format',
+      '--branch',
+      request.branch,
+    );
     if (validatedBranch !== request.branch) {
       throw new Error('Branch must be an explicit branch name');
     }
@@ -82,12 +97,32 @@ export class GitWorktreeManager {
     const byBranch = entries.find(
       (entry) => entry.branch === `refs/heads/${request.branch}`,
     );
+    // Record ownership before creating the worktree, so an interruption after
+    // `git worktree add` cannot make another issue adopt it on recovery.
+    const gitDir = this.git('rev-parse', '--absolute-git-dir');
+    const ownershipDir = join(gitDir, 'issue-to-pr', 'worktrees');
+    const key = createHash('sha256').update(request.branch).digest('hex');
+    const ownershipFile = join(ownershipDir, `${key}.json`);
+    const ownership = JSON.stringify({
+      issueId: request.issueId,
+      branch: request.branch,
+      path,
+    });
+
     if (byPath || byBranch) {
       if (!byPath || byPath !== byBranch) {
         throw new Error('Worktree path or branch is already in use');
       }
       if (!existsSync(path)) {
         throw new Error('Configured worktree is missing');
+      }
+      if (
+        !existsSync(ownershipFile) ||
+        readFileSync(ownershipFile, 'utf8') !== ownership
+      ) {
+        throw new Error(
+          'Worktree ownership does not match the issue and configuration',
+        );
       }
       return {
         ...request,
@@ -106,6 +141,18 @@ export class GitWorktreeManager {
       throw new Error(
         'Feature branch already exists without the configured worktree',
       );
+    }
+    mkdirSync(ownershipDir, { recursive: true });
+    try {
+      writeFileSync(ownershipFile, ownership, { flag: 'wx' });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      if (readFileSync(ownershipFile, 'utf8') !== ownership) {
+        throw new Error(
+          'Worktree ownership does not match the issue and configuration',
+          { cause: error },
+        );
+      }
     }
     const baseCommit = this.git('rev-parse', 'main^{commit}');
     this.git('worktree', 'add', '-b', request.branch, '--', path, baseCommit);
