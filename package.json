@@ -11,6 +11,9 @@
   },
   "keywords": [],
   "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "dependencies": {
     "zod": "^4.6.7"
   },
