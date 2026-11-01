@@ -159,8 +159,8 @@ No usar el historial de Pi como fuente de verdad de las transiciones del negocio
 
 ### M1 — Persistencia y worktrees
 
-- [ ] Implementar repositorio SQLite.
-- [ ] Guardar estado, versiones, eventos y artefactos.
+- [x] Implementar repositorio SQLite.
+- [x] Guardar estado, versiones, eventos y artefactos.
 - [ ] Implementar `WorktreeManager`.
 - [ ] Detectar worktrees existentes por issue y configuración.
 - [ ] Mantener intacto el checkout principal en `main`.
