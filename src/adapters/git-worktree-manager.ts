@@ -4,11 +4,19 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { z } from 'zod';
+
+const ownershipRecordSchema = z.object({
+  issueId: z.string(),
+  branch: z.string(),
+  path: z.string(),
+});
 
 export interface WorktreeRequest {
   issueId: string;
@@ -165,6 +173,31 @@ export class GitWorktreeManager {
       branch: request.branch,
       path,
     });
+
+    // Ownership records also reserve configurations during interrupted creation.
+    // The issue lock prevents two managers from claiming different branches at once.
+    if (existsSync(ownershipDir)) {
+      for (const file of readdirSync(ownershipDir)) {
+        if (!file.endsWith('.json') || file === `${key}.json`) continue;
+        let record: unknown;
+        try {
+          record = JSON.parse(readFileSync(join(ownershipDir, file), 'utf8'));
+        } catch (error) {
+          throw new Error('Invalid worktree ownership record', {
+            cause: error,
+          });
+        }
+        const parsed = ownershipRecordSchema.safeParse(record);
+        if (!parsed.success) {
+          throw new Error('Invalid worktree ownership record');
+        }
+        if (parsed.data.issueId === request.issueId) {
+          throw new Error(
+            'Issue already has a different worktree configuration',
+          );
+        }
+      }
+    }
 
     if (byPath || byBranch) {
       if (!byPath || byPath !== byBranch) {

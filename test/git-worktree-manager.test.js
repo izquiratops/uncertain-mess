@@ -76,12 +76,54 @@ test('does not let another issue adopt a worktree after restart', (t) => {
   };
   new GitWorktreeManager(repo).ensure(request);
   assert.throws(
-    () => new GitWorktreeManager(repo).ensure({
- ...request, issueId: 'ABC-2' 
-}),
+    () =>
+      new GitWorktreeManager(repo).ensure({
+        ...request,
+        issueId: 'ABC-2',
+      }),
     /ownership does not match/,
   );
   assert.equal(new GitWorktreeManager(repo).ensure(request).reused, true);
+});
+
+test('refuses a second configuration for the same issue after restart', (t) => {
+  const { root, repo } = fixture(t);
+  const request = {
+    issueId: 'ABC-1',
+    branch: 'issue/ABC-1',
+    path: join(root, 'worktree'),
+  };
+  new GitWorktreeManager(repo).ensure(request);
+  assert.throws(
+    () =>
+      new GitWorktreeManager(repo).ensure({
+        ...request,
+        branch: 'issue/alternative',
+        path: join(root, 'alternative'),
+      }),
+    /Issue already has a different worktree configuration/,
+  );
+  assert.equal(new GitWorktreeManager(repo).ensure(request).reused, true);
+});
+
+test('rejects invalid ownership records', (t) => {
+  const { root, repo } = fixture(t);
+  const directory = join(repo, '.git', 'issue-to-pr', 'worktrees');
+  mkdirSync(directory, { recursive: true });
+  const record = join(directory, 'invalid.json');
+  const manager = new GitWorktreeManager(repo);
+  const request = {
+    issueId: 'ABC-1',
+    branch: 'issue/ABC-1',
+    path: join(root, 'worktree'),
+  };
+  for (const content of ['{', 'null', '{"issueId":"ABC-2","branch":42}']) {
+    writeFileSync(record, content);
+    assert.throws(
+      () => manager.ensure(request),
+      /Invalid worktree ownership record/,
+    );
+  }
 });
 
 test('refuses to adopt an externally created worktree', (t) => {
@@ -89,9 +131,12 @@ test('refuses to adopt an externally created worktree', (t) => {
   const path = join(root, 'worktree');
   git('worktree', 'add', '-b', 'issue/ABC-1', path);
   assert.throws(
-    () => new GitWorktreeManager(repo).ensure({
- issueId: 'ABC-1', branch: 'issue/ABC-1', path 
-}),
+    () =>
+      new GitWorktreeManager(repo).ensure({
+        issueId: 'ABC-1',
+        branch: 'issue/ABC-1',
+        path,
+      }),
     /ownership does not match/,
   );
 });
@@ -100,33 +145,49 @@ test('locks issue, branch and path for the whole operation and releases on failu
   const { root, repo } = fixture(t);
   const manager = new GitWorktreeManager(repo);
   const request = {
- issueId: 'ABC-1', branch: 'issue/ABC-1', path: join(root, 'worktree') 
-};
-  await assert.rejects(manager.withWorktree(request, async () => {
-    for (const other of [
-      request,
-      {
- ...request, branch: 'other', path: join(root, 'other') 
-},
-      {
- ...request, issueId: 'ABC-2', path: join(root, 'other') 
-},
-      {
- ...request, issueId: 'ABC-2', branch: 'other' 
-},
-    ]) {
-      assert.throws(() => new GitWorktreeManager(repo).ensure(other), /acquire worktree lock/);
-    }
-    throw new Error('operation failed');
-  }), /operation failed/);
+    issueId: 'ABC-1',
+    branch: 'issue/ABC-1',
+    path: join(root, 'worktree'),
+  };
+  await assert.rejects(
+    manager.withWorktree(request, async () => {
+      for (const other of [
+        request,
+        {
+          ...request,
+          branch: 'other',
+          path: join(root, 'other'),
+        },
+        {
+          ...request,
+          issueId: 'ABC-2',
+          path: join(root, 'other'),
+        },
+        {
+          ...request,
+          issueId: 'ABC-2',
+          branch: 'other',
+        },
+      ]) {
+        assert.throws(
+          () => new GitWorktreeManager(repo).ensure(other),
+          /acquire worktree lock/,
+        );
+      }
+      throw new Error('operation failed');
+    }),
+    /operation failed/,
+  );
   assert.equal(manager.ensure(request).reused, true);
 });
 
 test('releases locks after a process is killed', async (t) => {
   const { root, repo } = fixture(t);
   const request = {
- issueId: 'ABC-1', branch: 'issue/ABC-1', path: join(root, 'worktree') 
-};
+    issueId: 'ABC-1',
+    branch: 'issue/ABC-1',
+    path: join(root, 'worktree'),
+  };
   const moduleUrl = new URL('../dist/index.js', import.meta.url).href;
   const script = `
     import { GitWorktreeManager } from ${JSON.stringify(moduleUrl)};
@@ -141,7 +202,10 @@ test('releases locks after a process is killed', async (t) => {
   });
   t.after(() => child.kill('SIGKILL'));
   await once(child.stdout, 'data');
-  assert.throws(() => new GitWorktreeManager(repo).ensure(request), /acquire worktree lock/);
+  assert.throws(
+    () => new GitWorktreeManager(repo).ensure(request),
+    /acquire worktree lock/,
+  );
   child.kill('SIGKILL');
   await once(child, 'exit');
   assert.equal(new GitWorktreeManager(repo).ensure(request).reused, true);
@@ -168,11 +232,12 @@ test('rejects main and master as feature branches', (t) => {
   const manager = new GitWorktreeManager(repo);
   for (const branch of ['main', 'master']) {
     assert.throws(
-      () => manager.ensure({
-        issueId: 'ABC-1',
-        branch,
-        path: join(root, 'worktree'),
-      }),
+      () =>
+        manager.ensure({
+          issueId: 'ABC-1',
+          branch,
+          path: join(root, 'worktree'),
+        }),
       /A feature branch is required/,
     );
   }
@@ -206,6 +271,7 @@ test('refuses conflicting paths, branches and non-main primary checkout', (t) =>
     () =>
       manager.ensure({
         ...request,
+        issueId: 'ABC-2',
         branch: 'issue/other',
       }),
     /already in use/,
@@ -223,6 +289,7 @@ test('refuses conflicting paths, branches and non-main primary checkout', (t) =>
     () =>
       manager.ensure({
         ...request,
+        issueId: 'ABC-2',
         branch: 'orphan-feature',
         path: join(root, 'other'),
       }),

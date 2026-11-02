@@ -162,6 +162,11 @@ No usar el historial de Pi como fuente de verdad de las transiciones del negocio
 - [x] Implementar repositorio SQLite.
 - [x] Guardar estado, versiones, eventos y artefactos.
 - [ ] Implementar `WorktreeManager`.
+  - [ ] Probar interrupciones durante la creación y definir cómo recuperar ramas o worktrees parcialmente creados.
+  - [ ] Devolver el commit base para que el workflow pueda persistirlo.
+  - [ ] Conectar el manager con la persistencia para guardar y restaurar los datos del worktree.
+  - [ ] Probar la interrupción y reanudación de un workflow persistido sin perder estado ni sobrescribir trabajo.
+  - [ ] Definir el puerto `WorktreeManager` para que la aplicación no dependa directamente de Git.
 - [ ] Detectar worktrees existentes por issue y configuración.
 - [ ] Mantener intacto el checkout principal en `main`.
 - [ ] Añadir bloqueo por issue/worktree.

@@ -30,3 +30,13 @@ A lock only says **“someone is using this right now.”** Once released, it do
 A JSON file says **“this worktree belongs to this issue.”** It records the issue ID, branch, and path under `.git/issue-to-pr/worktrees/`. The filename is based on the branch name. The file stays there after the operation finishes or the program stops.
 
 Before reusing a worktree, the manager checks that the branch and path match the JSON record. This stops a different issue from accidentally taking it over. The manager writes the record before creating the worktree, so even if the program stops just after creation, the ownership is already recorded. If a record already exists, it must match the request.
+
+The manager also checks whether the issue already has a record for a different branch or path. If it does, the request stops instead of creating a second worktree. If a record cannot be read or is missing required information, the manager stops rather than risk a conflict.
+
+## Is this related to idempotency?
+
+Yes. **Idempotency** means that repeating the same request has the same effect as doing it once.
+
+If you request the same issue, branch, and path again, the manager reuses the existing worktree instead of creating another one. That makes retries safer, including after a restart.
+
+If you request a different branch or path for the same issue, the manager reports a conflict instead of creating a second worktree. That is a related safeguard against conflicting requests.
