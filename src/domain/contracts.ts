@@ -163,5 +163,6 @@ export const WorkflowEventSchema = z.discriminatedUnion('type', [
     reason: text,
   }),
   z.object({ type: z.literal('context_retry') }),
+  z.object({ type: z.literal('context_collection_started') }),
 ]);
 export type WorkflowEvent = z.infer<typeof WorkflowEventSchema>;

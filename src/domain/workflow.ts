@@ -74,6 +74,11 @@ export function transition(
     };
   }
   switch (event.type) {
+    case 'context_collection_started':
+      if (state.status !== 'created') {
+        return invalid();
+      }
+      return state;
     case 'context_ready':
       if (state.status !== 'created') {
         return invalid();
