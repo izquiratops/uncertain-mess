@@ -7,6 +7,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     rules: {
+      curly: ['error', 'all'],
       'object-curly-newline': [
         'error',
         {

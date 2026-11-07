@@ -41,8 +41,9 @@ export class SqliteRunRepository {
   }
 
   create(id: string, issueId: string): Run {
-    if (!id.trim() || !issueId.trim())
+    if (!id.trim() || !issueId.trim()) {
       throw new Error('Run and issue IDs are required');
+    }
     const now = new Date().toISOString();
     this.db
       .prepare('INSERT INTO runs VALUES (?, ?, 0, ?, ?)')
@@ -52,7 +53,9 @@ export class SqliteRunRepository {
 
   load(id: string): Run | undefined {
     const row = this.db.prepare('SELECT * FROM runs WHERE id = ?').get(id);
-    if (!row) return undefined;
+    if (!row) {
+      return undefined;
+    }
     return {
       id: String(row.id),
       issueId: String(row.issue_id),
@@ -71,9 +74,12 @@ export class SqliteRunRepository {
     this.db.exec('BEGIN IMMEDIATE');
     try {
       const run = this.load(id);
-      if (!run) throw new Error(`Run not found: ${id}`);
-      if (run.version !== expectedVersion)
+      if (!run) {
+        throw new Error(`Run not found: ${id}`);
+      }
+      if (run.version !== expectedVersion) {
         throw new Error('Run version conflict');
+      }
       const event = WorkflowEventSchema.parse(rawEvent);
       const state = transition(run.state, event);
       const version = run.version + 1;

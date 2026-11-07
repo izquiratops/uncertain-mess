@@ -28,12 +28,16 @@ export function acquireWorktreeLocks(
       db.exec('PRAGMA busy_timeout = 0; BEGIN IMMEDIATE');
     }
   } catch (error) {
-    for (const db of databases.reverse()) db.close();
+    for (const db of databases.reverse()) {
+      db.close();
+    }
     throw new Error('Unable to acquire worktree lock', { cause: error });
   }
   activeLocks.add(databases);
   return () => {
     activeLocks.delete(databases);
-    for (const db of databases.reverse()) db.close();
+    for (const db of databases.reverse()) {
+      db.close();
+    }
   };
 }

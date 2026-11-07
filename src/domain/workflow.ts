@@ -60,7 +60,9 @@ export function transition(
   }
   switch (event.type) {
     case 'context_ready':
-      if (state.status !== 'created') return invalid();
+      if (state.status !== 'created') {
+        return invalid();
+      }
       return {
         ...state,
         status: 'planning',
@@ -69,8 +71,9 @@ export function transition(
       if (
         state.status !== 'planning' ||
         (state.plan && event.plan.version <= state.plan.version)
-      )
+      ) {
         return invalid();
+      }
       return {
         ...state,
         status: 'awaiting_approval',
@@ -78,7 +81,9 @@ export function transition(
         approvedPlanVersion: undefined,
       };
     case 'plan_rejected':
-      if (state.status !== 'awaiting_approval') return invalid();
+      if (state.status !== 'awaiting_approval') {
+        return invalid();
+      }
       return {
         ...state,
         status: 'planning',
@@ -87,8 +92,9 @@ export function transition(
       if (
         state.status !== 'awaiting_approval' ||
         state.plan?.version !== event.version
-      )
+      ) {
         return invalid();
+      }
       return {
         ...state,
         status: 'implementing',
@@ -99,8 +105,9 @@ export function transition(
         state.status !== 'implementing' ||
         !state.plan ||
         state.approvedPlanVersion !== state.plan.version
-      )
+      ) {
         return invalid();
+      }
       return {
         ...state,
         status: 'verifying',
@@ -108,7 +115,9 @@ export function transition(
         reviews: [],
       };
     case 'verification_finished':
-      if (state.status !== 'verifying') return invalid();
+      if (state.status !== 'verifying') {
+        return invalid();
+      }
       return {
         ...state,
         status: event.result.passed ? 'reviewing' : 'implementing',
@@ -121,16 +130,18 @@ export function transition(
         !state.verification?.passed ||
         event.result.snapshot !== state.verification.snapshot ||
         state.reviews.some((r) => r.reviewer === event.result.reviewer)
-      )
+      ) {
         return invalid();
+      }
       const reviews = [...state.reviews, event.result];
-      if (!event.result.approved)
+      if (!event.result.approved) {
         return {
           ...state,
           status: 'implementing',
           verification: undefined,
           reviews: [],
         };
+      }
       return {
         ...state,
         reviews,
@@ -149,14 +160,17 @@ export function transition(
         new Set(state.reviews.map((r) => r.reviewer)).size !== 3 ||
         !state.plan ||
         state.approvedPlanVersion !== state.plan.version
-      )
+      ) {
         return invalid();
+      }
       return {
         ...state,
         status: 'publishing',
       };
     case 'publication_finished':
-      if (state.status !== 'publishing') return invalid();
+      if (state.status !== 'publishing') {
+        return invalid();
+      }
       return {
         ...state,
         status: 'completed',

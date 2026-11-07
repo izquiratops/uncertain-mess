@@ -39,9 +39,13 @@ export class WorktreeOwnership {
   }
 
   assertIssueAvailable(): void {
-    if (!existsSync(this.directory)) return;
+    if (!existsSync(this.directory)) {
+      return;
+    }
     for (const file of readdirSync(this.directory)) {
-      if (!file.endsWith('.json') || file === `${this.key}.json`) continue;
+      if (!file.endsWith('.json') || file === `${this.key}.json`) {
+        continue;
+      }
       let record: unknown;
       try {
         record = JSON.parse(readFileSync(join(this.directory, file), 'utf8'));
@@ -49,7 +53,9 @@ export class WorktreeOwnership {
         throw new Error('Invalid worktree ownership record', { cause: error });
       }
       const parsed = ownershipRecordSchema.safeParse(record);
-      if (!parsed.success) throw new Error('Invalid worktree ownership record');
+      if (!parsed.success) {
+        throw new Error('Invalid worktree ownership record');
+      }
       if (parsed.data.issueId === this.request.issueId) {
         throw new Error('Issue already has a different worktree configuration');
       }
@@ -72,7 +78,9 @@ export class WorktreeOwnership {
     try {
       writeFileSync(this.file, this.contents, { flag: 'wx' });
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw error;
+      }
       if (readFileSync(this.file, 'utf8') !== this.contents) {
         throw new Error(
           'Worktree ownership does not match the issue and configuration',

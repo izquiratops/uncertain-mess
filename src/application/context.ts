@@ -40,16 +40,20 @@ export async function createTaskContext(
   for (const reference of issue.references) {
     try {
       const source = sources.find((candidate) => candidate.supports(reference));
-      if (!source) throw new Error('No context source supports this reference');
+      if (!source) {
+        throw new Error('No context source supports this reference');
+      }
       const context = ExternalContextSchema.parse(
         await source.resolve(reference),
       );
-      if (context.url !== reference.url)
+      if (context.url !== reference.url) {
         throw new Error('Context URL does not match reference');
+      }
       externalContext.push(context);
     } catch (error) {
-      if (reference.required)
+      if (reference.required) {
         throw new RequiredContextError(reference.url, { cause: error });
+      }
     }
   }
   return TaskContextSchema.parse({

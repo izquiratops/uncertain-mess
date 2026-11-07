@@ -94,7 +94,9 @@ export class GitWorktreeManager {
       if (!byPath || byPath !== byBranch) {
         throw new Error('Worktree path or branch is already in use');
       }
-      if (!existsSync(path)) throw new Error('Configured worktree is missing');
+      if (!existsSync(path)) {
+        throw new Error('Configured worktree is missing');
+      }
       ownership.assertMatches();
       return {
         ...request,
@@ -125,7 +127,9 @@ export class GitWorktreeManager {
   }
 
   private validateRequest(request: WorktreeRequest): void {
-    if (!request.issueId.trim()) throw new Error('Issue ID is required');
+    if (!request.issueId.trim()) {
+      throw new Error('Issue ID is required');
+    }
     if (
       !request.branch ||
       request.branch === 'main' ||
