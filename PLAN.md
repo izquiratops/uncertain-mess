@@ -167,10 +167,12 @@ No usar el historial de Pi como fuente de verdad de las transiciones del negocio
   - [ ] Conectar el manager con la persistencia para guardar y restaurar los datos del worktree.
   - [ ] Probar la interrupción y reanudación de un workflow persistido sin perder estado ni sobrescribir trabajo.
   - [ ] Definir el puerto `WorktreeManager` para que la aplicación no dependa directamente de Git.
-- [ ] Detectar worktrees existentes por issue y configuración.
-- [ ] Mantener intacto el checkout principal en `main`.
-- [ ] Añadir bloqueo por issue/worktree.
-- [ ] Probar recuperación tras reinicio.
+- [x] Detectar worktrees existentes por issue y configuración.
+- [x] Mantener intacto el checkout principal en `main` durante las operaciones del manager.
+- [x] Añadir bloqueo por issue/worktree.
+- [x] Probar recuperación del manager tras reinicio.
+
+El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar el resto de esta integración hasta que exista un consumidor del workflow: entonces definir el puerto según sus necesidades y probar la persistencia y recuperación de extremo a extremo. No asumir todavía que Git worktrees será el único mecanismo de aislamiento; una VM podría reemplazarlo o complementarlo. La recuperación de interrupciones parciales y el commit base siguen pendientes y deben resolverse antes de usar el adaptador en un workflow real.
 
 **Aceptación:** el workflow puede interrumpirse y reanudarse sin perder el estado ni sobrescribir un worktree.
 
