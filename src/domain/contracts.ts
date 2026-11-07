@@ -1,12 +1,34 @@
 import { z } from 'zod';
 
 const text = z.string().trim().min(1);
+export const ContextReferenceSchema = z.object({
+  url: z.url(),
+  required: z.boolean(),
+});
+export type ContextReference = z.infer<typeof ContextReferenceSchema>;
+
+export const ExternalContextSchema = z.object({
+  url: z.url(),
+  content: text,
+});
+export type ExternalContext = z.infer<typeof ExternalContextSchema>;
+
+export const IssueSchema = z.object({
+  id: text,
+  title: text,
+  description: text,
+  acceptanceCriteria: z.array(text),
+  references: z.array(ContextReferenceSchema),
+});
+export type Issue = z.infer<typeof IssueSchema>;
+
 export const TaskContextSchema = z.object({
   issueId: text,
   title: text,
   description: text,
   acceptanceCriteria: z.array(text),
   references: z.array(z.url()),
+  externalContext: z.array(ExternalContextSchema).optional(),
 });
 export type TaskContext = z.infer<typeof TaskContextSchema>;
 
@@ -84,7 +106,7 @@ export const WorkflowEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('publication_finished'),
-    prUrl: z.string().url(),
+    prUrl: z.url(),
   }),
   z.object({
     type: z.literal('attention_required'),
