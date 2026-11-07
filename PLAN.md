@@ -178,14 +178,28 @@ El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar 
 
 ### M2 — Linear y contexto
 
-- [ ] Implementar `LinearIssueProvider`.
-- [ ] Recuperar descripción, criterios y attachments.
-- [ ] Detectar enlaces a Figma y recursos visuales.
-- [ ] Crear `TaskContext` normalizado.
-- [ ] Bloquear ejecución ante referencias obligatorias inaccesibles.
-- [ ] Implementar pruebas con respuestas simuladas.
+**Punto de partida:** `src/application/context.ts` define los puertos genéricos `IssueProvider` y `ContextSource` y compone el contexto; `src/adapters/linear-issue-provider.ts` consulta Linear mediante GraphQL y pagina attachments. `src/domain/contracts.ts` contiene los schemas Zod. `docs/context-providers.md` documenta las limitaciones actuales y la convención `required-context: URL`. Hay pruebas simuladas en `test/context.test.js` y `test/linear-issue-provider.test.js`. El proveedor no se ha validado con Linear real, no existe una fuente Figma y todavía no hay un caso de uso conectado a persistencia.
 
-**Aceptación:** una issue real genera un contexto validado y reproducible.
+**Trabajo pendiente, en orden orientativo:**
+
+1. [ ] Completar y verificar la normalización de Linear:
+   - [ ] Validar la consulta GraphQL, autenticación y paginación con una issue real y credenciales proporcionadas por el usuario; no guardar credenciales ni datos privados en el repositorio. Documentar cómo ejecutar la prueba y qué hacer si no hay acceso.
+   - [ ] Revisar cómo representar attachments y sus metadatos, descripción y criterios de aceptación sin perder información necesaria. Actualmente se conservan URL de attachments y solo se extraen listas bajo encabezados concretos; no inferir criterios silenciosamente cuando no existan.
+   - [ ] Revisar extracción y clasificación de enlaces a Figma y otros recursos visuales, incluidos formatos Markdown relevantes, deduplicación y directivas `required-context`; documentar las limitaciones o reglas adoptadas.
+2. [ ] Implementar una fuente de contexto para Figma usando `ContextSource`, sin acoplar el dominio ni el caso de uso a Figma. Definir configuración, permisos y representación normalizada de la información recuperada; probar respuestas y errores simulados. Mantener extensible la integración para otras fuentes.
+3. [ ] Completar el contexto normalizado y reproducible:
+   - [ ] Conservar los datos y el contenido externo necesarios para planificación, así como la obligatoriedad y el resultado de resolución de cada referencia. Actualmente `TaskContext` solo conserva URL y contenido resuelto, y los fallos opcionales se descartan.
+   - [ ] Persistir un snapshot validado y versionado del contexto como artefacto; definir cuándo se reutiliza tras reiniciar y cuándo una actualización exige obtener una nueva versión. No depender de que los servicios externos sigan devolviendo los mismos datos.
+4. [ ] Integrar la recuperación de contexto con el workflow y la persistencia:
+   - [ ] Definir el puerto de repositorio que necesite el caso de uso, sin depender directamente de SQLite; utilizar las operaciones atómicas y el control de versión existentes en `SqliteRunRepository` o ampliarlos con migraciones cuando sea necesario.
+   - [ ] Registrar intentos y resultados relevantes, incluidos fallos, advertencias y reintentos; filtrar credenciales y datos sensibles antes de persistirlos.
+   - [ ] Ante un fallo obligatorio, registrar el motivo y pasar a `needs_attention` sin emitir `context_ready`; conservar los fallos opcionales como advertencias sin bloquear el workflow.
+   - [ ] Definir y probar cómo reanudar tras `needs_attention` y cómo recuperar interrupciones sin perder el snapshot ni duplicar resultados. La máquina de estados actual no ofrece una transición de reanudación desde `needs_attention`.
+   - [ ] Emitir `context_ready` solo después de validar y guardar el contexto; asegurar la coherencia entre evento, estado y artefacto ante fallos y conflictos de versión.
+5. [ ] Ampliar las pruebas: proveedores genéricos intercambiables; criterios y attachments paginados; enlaces y directivas válidas e inválidas; fuentes externas exitosas, inaccesibles y con datos inválidos; fallos obligatorios y opcionales; persistencia, conflictos, interrupción y reanudación. Mantener pruebas simuladas sin red ni secretos.
+6. [ ] Ejecutar Prettier sobre los archivos modificados y `npm run check`; actualizar `docs/context-providers.md` con configuración, reglas y limitaciones definitivas.
+
+**Aceptación:** una issue real genera un contexto validado, persistido y reproducible; las referencias obligatorias inaccesibles bloquean el avance y sus fallos quedan registrados. La reanudación y los fallos opcionales están cubiertos por pruebas.
 
 ### M3 — Planificación y aprobación
 

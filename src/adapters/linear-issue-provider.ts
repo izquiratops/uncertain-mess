@@ -67,9 +67,36 @@ function acceptanceCriteria(description: string): string[] {
 }
 
 function descriptionUrls(description: string): string[] {
-  return [...description.matchAll(/https?:\/\/[^\s<>"']+/g)]
+  const text = description
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*required-context\s*:/i.test(line))
+    .join('\n');
+  return [...text.matchAll(/https?:\/\/[^\s<>"']+/g)]
     .map((match) => match[0].replace(/[),.\];!?]+$/, ''))
     .filter((url) => z.url().safeParse(url).success);
+}
+
+/** Explicit directives prevent inaccessible required references from being ignored. */
+function requiredContextUrls(description: string): string[] {
+  const urls: string[] = [];
+  for (const line of description.split(/\r?\n/)) {
+    const directive = /^\s*required-context\s*:\s*(.*?)\s*$/i.exec(line);
+    if (!directive) {
+      continue;
+    }
+    const url = directive[1];
+    if (
+      /\s/.test(url) ||
+      !/^https?:\/\//i.test(url) ||
+      !z.url().safeParse(url).success
+    ) {
+      throw new Error(
+        'Invalid required-context directive in Linear description',
+      );
+    }
+    urls.push(url);
+  }
+  return urls;
 }
 
 export interface LinearIssueProviderOptions {
@@ -122,13 +149,15 @@ export class LinearIssueProvider implements IssueProvider {
     }
 
     const description = details.description ?? '';
+    const requiredUrls = new Set(requiredContextUrls(description));
     const uniqueUrls = new Set([
       ...descriptionUrls(description),
       ...attachmentUrls,
+      ...requiredUrls,
     ]);
     const references = [...uniqueUrls].map((url) => ({
       url,
-      required: false,
+      required: requiredUrls.has(url),
     }));
 
     return IssueSchema.parse({

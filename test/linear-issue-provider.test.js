@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LinearIssueProvider, createTaskContext } from '../dist/index.js';
+import {
+  LinearIssueProvider,
+  RequiredContextError,
+  createTaskContext,
+} from '../dist/index.js';
 
 const issue = {
   identifier: 'ABC-12',
@@ -49,6 +53,62 @@ test('fetches and normalizes Linear issue and paginated attachments', async () =
   ]);
   assert.equal(requests[0].headers.Authorization, 'secret');
   assert.equal(requests[1].body.variables.after, 'cursor');
+});
+
+test('explicit required context blocks until a source resolves it', async () => {
+  const url = 'https://figma.com/file/123';
+  const data = page([{ url }]);
+  data.data.issue.description = `Design: ${url}\nrequired-context: ${url}`;
+  const provider = new LinearIssueProvider({
+    apiKey: 'key',
+    fetch: async () => globalThis.Response.json(data),
+  });
+
+  const normalized = await provider.getIssue('ABC-12');
+  assert.deepEqual(normalized.references, [
+    {
+      url,
+      required: true,
+    },
+  ]);
+  await assert.rejects(
+    createTaskContext(provider, [], 'ABC-12'),
+    RequiredContextError,
+  );
+
+  const source = {
+    supports: () => true,
+    resolve: async (reference) => ({
+      url: reference.url,
+      content: 'Design',
+    }),
+  };
+  const context = await createTaskContext(provider, [source], 'ABC-12');
+  assert.deepEqual(context.externalContext, [
+    {
+      url,
+      content: 'Design',
+    },
+  ]);
+});
+
+test('rejects malformed required-context directives', async () => {
+  for (const directive of [
+    'required-context:',
+    'required-context: not-a-url',
+    'required-context: https://example.com extra',
+  ]) {
+    const data = page([]);
+    data.data.issue.description = directive;
+    const provider = new LinearIssueProvider({
+      apiKey: 'key',
+      fetch: async () => globalThis.Response.json(data),
+    });
+    await assert.rejects(
+      provider.getIssue('ABC-12'),
+      /Invalid required-context/,
+    );
+  }
 });
 
 test('rejects HTTP, GraphQL and pagination errors', async () => {
