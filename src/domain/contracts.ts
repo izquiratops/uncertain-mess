@@ -105,6 +105,18 @@ export const WorkflowStateSchema = z.object({
     'completed',
     'needs_attention',
   ]),
+  attentionFrom: z
+    .enum([
+      'created',
+      'planning',
+      'awaiting_approval',
+      'implementing',
+      'verifying',
+      'reviewing',
+      'ready_for_pr',
+      'publishing',
+    ])
+    .optional(),
   plan: ImplementationPlanSchema.optional(),
   approvedPlanVersion: z.number().int().positive().optional(),
   verification: VerificationResultSchema.optional(),
@@ -150,5 +162,6 @@ export const WorkflowEventSchema = z.discriminatedUnion('type', [
     type: z.literal('attention_required'),
     reason: text,
   }),
+  z.object({ type: z.literal('context_retry') }),
 ]);
 export type WorkflowEvent = z.infer<typeof WorkflowEventSchema>;

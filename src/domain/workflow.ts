@@ -26,7 +26,22 @@ export function transition(
   if (event.type === 'attention_required' && state.status !== 'completed') {
     return {
       ...state,
+      attentionFrom:
+        state.status === 'needs_attention' ? state.attentionFrom : state.status,
       status: 'needs_attention',
+    };
+  }
+  if (event.type === 'context_retry') {
+    if (
+      state.status !== 'needs_attention' ||
+      state.attentionFrom !== 'created'
+    ) {
+      return invalid();
+    }
+    return {
+      ...state,
+      status: 'created',
+      attentionFrom: undefined,
     };
   }
   if (
