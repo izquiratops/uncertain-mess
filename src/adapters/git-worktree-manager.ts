@@ -1,22 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  writeFileSync,
-} from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { z } from 'zod';
-
-const ownershipRecordSchema = z.object({
-  issueId: z.string(),
-  branch: z.string(),
-  path: z.string(),
-});
+import { existsSync, realpathSync } from 'node:fs';
+import { acquireWorktreeLocks } from './worktree-locks.js';
+import { WorktreeOwnership } from './worktree-ownership.js';
+import { canonicalPath } from './worktree-path.js';
 
 export interface WorktreeRequest {
   issueId: string;
@@ -31,20 +17,6 @@ export interface ManagedWorktree {
   reused: boolean;
 }
 
-function canonicalPath(path: string): string {
-  const absolute = resolve(path);
-  if (existsSync(absolute)) {
-    return realpathSync(absolute);
-  }
-  const parent = dirname(absolute);
-  if (parent === absolute) {
-    return absolute;
-  }
-  return join(canonicalPath(parent), basename(absolute));
-}
-
-const activeLocks = new Set<DatabaseSync[]>();
-
 /** Manages worktrees without checking out or modifying the main worktree. */
 export class GitWorktreeManager {
   private readonly repository: string;
@@ -56,7 +28,7 @@ export class GitWorktreeManager {
   private git(...args: string[]): string {
     return execFileSync('git', ['-C', this.repository, ...args], {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'], // [stdin, stdout, stderr]
     }).trim();
   }
 
@@ -84,72 +56,18 @@ export class GitWorktreeManager {
   }
 
   private lock(request: WorktreeRequest): () => void {
-    const lockDir = join(
+    return acquireWorktreeLocks(
       this.git('rev-parse', '--absolute-git-dir'),
-      'issue-to-pr',
-      'locks',
+      request,
     );
-    mkdirSync(lockDir, { recursive: true });
-    const resources = [
-      `issue:${request.issueId}`,
-      `branch:${request.branch}`,
-      `path:${canonicalPath(request.path)}`,
-    ].sort();
-    const databases: DatabaseSync[] = [];
-    try {
-      for (const resource of resources) {
-        const key = createHash('sha256').update(resource).digest('hex');
-        const db = new DatabaseSync(join(lockDir, `${key}.sqlite`));
-        databases.push(db);
-        db.exec('PRAGMA busy_timeout = 0; BEGIN IMMEDIATE');
-      }
-    } catch (error) {
-      for (const db of databases.reverse()) {
-        db.close();
-      }
-      throw new Error('Unable to acquire worktree lock', { cause: error });
-    }
-    activeLocks.add(databases);
-
-    return () => {
-      activeLocks.delete(databases);
-      for (const db of databases.reverse()) db.close();
-    };
   }
 
   private ensureUnlocked(request: WorktreeRequest): ManagedWorktree {
-    if (!request.issueId.trim()) {
-      throw new Error('Issue ID is required');
-    }
-    if (
-      !request.branch ||
-      request.branch === 'main' ||
-      request.branch === 'master'
-    ) {
-      throw new Error('A feature branch is required');
-    }
-    const validatedBranch = this.git(
-      'check-ref-format',
-      '--branch',
-      request.branch,
-    );
-    if (validatedBranch !== request.branch) {
-      throw new Error('Branch must be an explicit branch name');
-    }
+    this.validateRequest(request);
     const path = canonicalPath(request.path);
-    const entries = this.git('worktree', 'list', '--porcelain', '-z')
-      .split('\0\0')
-      .filter(Boolean)
-      .map((entry) => {
-        const fields = entry.split('\0');
-        return {
-          path: fields.find((field) => field.startsWith('worktree '))?.slice(9),
-          branch: fields.find((field) => field.startsWith('branch '))?.slice(7),
-        };
-      });
+    const entries = this.listWorktrees();
     const main = entries[0];
-    // Require the supplied repository to be the primary worktree on main,
-    // rather than a linked worktree or a primary checkout on another branch.
+    // Only the primary worktree on main is a valid base.
     if (
       !main?.path ||
       realpathSync(main.path) !== this.repository ||
@@ -164,56 +82,20 @@ export class GitWorktreeManager {
     const byBranch = entries.find(
       (entry) => entry.branch === `refs/heads/${request.branch}`,
     );
-    const gitDir = this.git('rev-parse', '--absolute-git-dir');
-    const ownershipDir = join(gitDir, 'issue-to-pr', 'worktrees');
-    const key = createHash('sha256').update(request.branch).digest('hex');
-    const ownershipFile = join(ownershipDir, `${key}.json`);
-    const ownership = JSON.stringify({
-      issueId: request.issueId,
-      branch: request.branch,
+    const ownership = new WorktreeOwnership(
+      this.git('rev-parse', '--absolute-git-dir'),
+      request,
       path,
-    });
-
-    // Ownership records also reserve configurations during interrupted creation.
-    // The issue lock prevents two managers from claiming different branches at once.
-    if (existsSync(ownershipDir)) {
-      for (const file of readdirSync(ownershipDir)) {
-        if (!file.endsWith('.json') || file === `${key}.json`) continue;
-        let record: unknown;
-        try {
-          record = JSON.parse(readFileSync(join(ownershipDir, file), 'utf8'));
-        } catch (error) {
-          throw new Error('Invalid worktree ownership record', {
-            cause: error,
-          });
-        }
-        const parsed = ownershipRecordSchema.safeParse(record);
-        if (!parsed.success) {
-          throw new Error('Invalid worktree ownership record');
-        }
-        if (parsed.data.issueId === request.issueId) {
-          throw new Error(
-            'Issue already has a different worktree configuration',
-          );
-        }
-      }
-    }
+    );
+    // The issue lock prevents concurrent claims for different branches.
+    ownership.assertIssueAvailable();
 
     if (byPath || byBranch) {
       if (!byPath || byPath !== byBranch) {
         throw new Error('Worktree path or branch is already in use');
       }
-      if (!existsSync(path)) {
-        throw new Error('Configured worktree is missing');
-      }
-      if (
-        !existsSync(ownershipFile) ||
-        readFileSync(ownershipFile, 'utf8') !== ownership
-      ) {
-        throw new Error(
-          'Worktree ownership does not match the issue and configuration',
-        );
-      }
+      if (!existsSync(path)) throw new Error('Configured worktree is missing');
+      ownership.assertMatches();
       return {
         ...request,
         path,
@@ -232,27 +114,46 @@ export class GitWorktreeManager {
         'Feature branch already exists without the configured worktree',
       );
     }
-    mkdirSync(ownershipDir, { recursive: true });
-    try {
-      writeFileSync(ownershipFile, ownership, { flag: 'wx' });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        throw error;
-      }
-      if (readFileSync(ownershipFile, 'utf8') !== ownership) {
-        throw new Error(
-          'Worktree ownership does not match the issue and configuration',
-          { cause: error },
-        );
-      }
-    }
+    ownership.reserve();
     const baseCommit = this.git('rev-parse', 'main^{commit}');
     this.git('worktree', 'add', '-b', request.branch, '--', path, baseCommit);
-
     return {
       ...request,
       path,
       reused: false,
     };
+  }
+
+  private validateRequest(request: WorktreeRequest): void {
+    if (!request.issueId.trim()) throw new Error('Issue ID is required');
+    if (
+      !request.branch ||
+      request.branch === 'main' ||
+      request.branch === 'master'
+    ) {
+      throw new Error('A feature branch is required');
+    }
+    if (
+      this.git('check-ref-format', '--branch', request.branch) !==
+      request.branch
+    ) {
+      throw new Error('Branch must be an explicit branch name');
+    }
+  }
+
+  private listWorktrees(): {
+    path: string | undefined;
+    branch: string | undefined;
+  }[] {
+    return this.git('worktree', 'list', '--porcelain', '-z')
+      .split('\0\0')
+      .filter(Boolean)
+      .map((entry) => {
+        const fields = entry.split('\0');
+        return {
+          path: fields.find((field) => field.startsWith('worktree '))?.slice(9),
+          branch: fields.find((field) => field.startsWith('branch '))?.slice(7),
+        };
+      });
   }
 }
