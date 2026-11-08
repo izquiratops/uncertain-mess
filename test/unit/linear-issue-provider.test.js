@@ -93,11 +93,31 @@ describe('LinearIssueProvider', () => {
     ]);
   });
 
+  test('accepts Linear auto-linked required context', async () => {
+    const url = 'https://www.figma.com/design/key/name?node-id=5-174&t=abc';
+    for (const link of [`[${url}](<${url}>)`, `[Design](${url})`]) {
+      const data = page([]);
+      data.data.issue.description = `required-context: ${link}`;
+      const provider = new LinearIssueProvider({
+        apiKey: 'key',
+        fetch: async () => globalThis.Response.json(data),
+      });
+      const normalized = await provider.getIssue('ABC-12');
+      assert.deepEqual(normalized.references, [
+        {
+          url,
+          required: true,
+        },
+      ]);
+    }
+  });
+
   test('rejects malformed required-context directives', async () => {
     for (const directive of [
       'required-context:',
       'required-context: not-a-url',
       'required-context: https://example.com extra',
+      'required-context: [link](<https://example.com>) extra',
     ]) {
       const data = page([]);
       data.data.issue.description = directive;

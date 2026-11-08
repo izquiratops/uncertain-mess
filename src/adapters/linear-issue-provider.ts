@@ -84,7 +84,12 @@ function requiredContextUrls(description: string): string[] {
     if (!directive) {
       continue;
     }
-    const url = directive[1];
+    // Linear may serialize an automatically linked URL as Markdown.
+    const value = directive[1];
+    const markdownLink = /^\[[^\]\r\n]*\]\((?:<([^<>\s]+)>|([^\s()]+))\)$/.exec(
+      value,
+    );
+    const url = markdownLink ? (markdownLink[1] ?? markdownLink[2]) : value;
     if (
       /\s/.test(url) ||
       !/^https?:\/\//i.test(url) ||
