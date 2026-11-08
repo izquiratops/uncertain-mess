@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTaskContext, RequiredContextError } from '../dist/index.js';
+import { createTaskContext, RequiredContextError } from '../../dist/index.js';
 
 const url = 'https://example.com/design';
 const issue = (references = []) => ({

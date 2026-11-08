@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialState, transition } from '../dist/index.js';
+import { initialState, transition } from '../../dist/index.js';
 
 describe('workflow: context retry', () => {
   test('context retry resumes only an initial context failure', () => {

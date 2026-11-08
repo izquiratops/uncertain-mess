@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SqliteRunRepository } from '../dist/index.js';
+import { SqliteRunRepository } from '../../dist/index.js';
 
 const context = {
   issueId: 'A-1',

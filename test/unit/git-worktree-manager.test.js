@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { URL } from 'node:url';
-import { GitWorktreeManager } from '../dist/index.js';
+import { GitWorktreeManager } from '../../dist/index.js';
 
 // Create an isolated repository and remove it after the test.
 function fixture(t) {

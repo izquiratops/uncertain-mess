@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialState, transition, ReviewResultSchema } from '../dist/index.js';
+import { initialState, transition, ReviewResultSchema } from '../../dist/index.js';
 
 const context = {
   issueId: 'A-1',

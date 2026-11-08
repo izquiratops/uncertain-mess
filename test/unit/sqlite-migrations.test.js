@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrateSqlite, SqliteRunRepository } from '../dist/index.js';
+import { migrateSqlite, SqliteRunRepository } from '../../dist/index.js';
 
 const fixtureMigrations = [
   {

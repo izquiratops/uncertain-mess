@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   collectContextSnapshot,
   ContextSnapshotSchema,
-} from '../dist/index.js';
+} from '../../dist/index.js';
 
 describe('collectContextSnapshot', () => {
   test('snapshot retains resolved and unavailable references without provider errors', async () => {

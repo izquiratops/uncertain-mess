@@ -4,7 +4,7 @@ import {
   LinearIssueProvider,
   RequiredContextError,
   createTaskContext,
-} from '../dist/index.js';
+} from '../../dist/index.js';
 
 const issue = {
   identifier: 'ABC-12',

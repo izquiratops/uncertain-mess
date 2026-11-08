@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FigmaContextSource } from '../dist/index.js';
+import { FigmaContextSource } from '../../dist/index.js';
 
 const reference = (url) => ({
   url,
