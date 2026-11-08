@@ -142,6 +142,7 @@ describe('GitWorktreeManager', () => {
     );
   });
 
+  // While one operation is using these resources, others must wait; a failure frees them.
   test('locks issue, branch and path for the whole operation and releases on failure', async (t) => {
     const { root, repo } = fixture(t);
     const manager = new GitWorktreeManager(repo);
@@ -182,39 +183,53 @@ describe('GitWorktreeManager', () => {
     assert.equal(manager.ensure(request).reused, true);
   });
 
-  test('releases locks after a process is killed', async (t) => {
-    const { root, repo } = fixture(t);
-    const request = {
-      issueId: 'ABC-1',
-      branch: 'issue/ABC-1',
-      path: join(root, 'worktree'),
-    };
-    const moduleUrl = new URL('../dist/index.js', import.meta.url).href;
-    const script = `
-    import { GitWorktreeManager } from ${JSON.stringify(moduleUrl)};
-    const manager = new GitWorktreeManager(${JSON.stringify(repo)});
-    await manager.withWorktree(${JSON.stringify(request)}, async () => {
-      console.log('locked');
-      await new Promise(() => setInterval(() => {}, 1000));
-    });
-  `;
-    const child = spawn(
-      process.execPath,
-      ['--input-type=module', '-e', script],
-      {
-        stdio: ['pipe', 'pipe', 'ignore'],
-      },
-    );
-    t.after(() => child.kill('SIGKILL'));
-    await once(child.stdout, 'data');
-    assert.throws(
-      () => new GitWorktreeManager(repo).ensure(request),
-      /acquire worktree lock/,
-    );
-    child.kill('SIGKILL');
-    await once(child, 'exit');
-    assert.equal(new GitWorktreeManager(repo).ensure(request).reused, true);
-  });
+  test(
+    'releases locks after a process is killed',
+    { timeout: 5000 },
+    async (t) => {
+      const { root, repo } = fixture(t);
+      const request = {
+        issueId: 'ABC-1',
+        branch: 'issue/ABC-1',
+        path: join(root, 'worktree'),
+      };
+      const moduleUrl = new URL('../../dist/index.js', import.meta.url).href;
+      // Hold the lock in another process so we can check it's freed if that process is killed.
+      const script = `
+        import { GitWorktreeManager } from ${JSON.stringify(moduleUrl)};
+        const manager = new GitWorktreeManager(${JSON.stringify(repo)});
+        await manager.withWorktree(${JSON.stringify(request)}, async () => {
+          console.log('locked');
+          await new Promise(() => setInterval(() => {}, 1000));
+        });
+      `;
+      const child = spawn(
+        process.execPath,
+        ['--input-type=module', '-e', script],
+        {
+          stdio: ['ignore', 'pipe', 'inherit'],
+        },
+      );
+      t.after(() => child.kill('SIGKILL'));
+      // Listen for exit early so we don't miss it, even if the child exits before locking.
+      const exited = once(child, 'exit');
+      await Promise.race([
+        once(child.stdout, 'data'),
+        exited.then(([code, signal]) => {
+          throw new Error(
+            `Child exited before acquiring lock: ${code ?? signal}`,
+          );
+        }),
+      ]);
+      assert.throws(
+        () => new GitWorktreeManager(repo).ensure(request),
+        /acquire worktree lock/,
+      );
+      child.kill('SIGKILL');
+      await exited;
+      assert.equal(new GitWorktreeManager(repo).ensure(request).reused, true);
+    },
+  );
 
   test('resolves symlinked paths and refuses missing worktrees', (t) => {
     const { root, repo } = fixture(t);

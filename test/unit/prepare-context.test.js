@@ -162,66 +162,87 @@ describe('prepareContext', () => {
     }
   });
 
-  test('concurrent attempts cannot overwrite the winning snapshot', async () => {
-    const repository = new SqliteRunRepository(':memory:');
-    try {
-      repository.create('run', 'A-1');
+  // Pause one attempt, let another save first, then check the old result cannot replace it.
+  test(
+    'concurrent attempts cannot overwrite the winning snapshot',
+    { timeout: 5000 },
+    async () => {
+      const repository = new SqliteRunRepository(':memory:');
       let release;
-      const waiting = new Promise((resolve) => {
-        release = resolve;
-      });
-      let started;
-      const startedPromise = new Promise((resolve) => {
-        started = resolve;
-      });
-      const slow = prepareContext(
-        repository,
-        {
-          getIssue: async () => {
-            started();
-            await waiting;
-            return {
-              ...simpleIssue,
-              title: 'Stale',
-            };
-          },
-        },
-        [],
-        'run',
-      );
-      await startedPromise;
-      const winner = await prepareContext(
-        repository,
-        {
-          getIssue: async () => simpleIssue,
-        },
-        [],
-        'run',
-      );
-      release();
-      await assert.rejects(slow, /version conflict/);
-      assert.deepEqual(
-        await prepareContext(
+      try {
+        repository.create('run', 'A-1');
+        const waiting = new Promise((resolve) => {
+          release = resolve;
+        });
+        let started;
+        const startedPromise = new Promise((resolve) => {
+          started = resolve;
+        });
+        const slow = prepareContext(
           repository,
           {
             getIssue: async () => {
-              throw new Error('unexpected');
+              started();
+              await waiting;
+              return {
+                ...simpleIssue,
+                title: 'Stale',
+              };
             },
           },
           [],
           'run',
-        ),
-        winner,
-      );
-      assert.equal(repository.artifacts('run').length, 1);
-      assert.equal(
-        repository
-          .events('run')
-          .filter(({ event }) => event.type === 'context_ready').length,
-        1,
-      );
-    } finally {
-      repository.close();
-    }
-  });
+        );
+        // If preparation fails before getIssue starts, its signal will never arrive.
+        await Promise.race([
+          startedPromise,
+          slow.then(
+            () => {
+              throw new Error(
+                'prepareContext finished before getIssue started',
+              );
+            },
+            (error) => {
+              throw new Error('prepareContext failed before getIssue started', {
+                cause: error,
+              });
+            },
+          ),
+        ]);
+        const winner = await prepareContext(
+          repository,
+          {
+            getIssue: async () => simpleIssue,
+          },
+          [],
+          'run',
+        );
+        release();
+        await assert.rejects(slow, /version conflict/);
+        assert.deepEqual(
+          await prepareContext(
+            repository,
+            {
+              getIssue: async () => {
+                throw new Error('unexpected');
+              },
+            },
+            [],
+            'run',
+          ),
+          winner,
+        );
+        assert.equal(repository.artifacts('run').length, 1);
+        assert.equal(
+          repository
+            .events('run')
+            .filter(({ event }) => event.type === 'context_ready').length,
+          1,
+        );
+      } finally {
+        release?.();
+        repository.close();
+      }
+    },
+  );
 });
