@@ -40,16 +40,16 @@ export async function collectContextSnapshot(
   const issue = IssueSchema.parse(await issueProvider.getIssue(issueId));
   const resolutions: ContextSnapshot['resolutions'] = [];
   for (const reference of issue.references) {
-    const source = sources.find((candidate) => candidate.supports(reference));
-    if (!source) {
-      resolutions.push({
-        reference,
-        status: 'unavailable',
-        reason: 'No compatible context source',
-      });
-      continue;
-    }
     try {
+      const source = sources.find((candidate) => candidate.supports(reference));
+      if (!source) {
+        resolutions.push({
+          reference,
+          status: 'unavailable',
+          reason: 'No compatible context source',
+        });
+        continue;
+      }
       const result = ExternalContextSchema.parse(
         await source.resolve(reference),
       );

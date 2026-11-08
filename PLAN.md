@@ -198,6 +198,7 @@ El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar 
    - [x] Ante un fallo obligatorio, registrar un motivo genérico y pasar a `needs_attention` sin emitir `context_ready`; conservar los fallos opcionales sin bloquear el workflow.
    - [x] Permitir y probar el reintento explícito desde `needs_attention` cuando el fallo ocurrió durante la recuperación inicial de contexto.
    - [x] Probar la recuperación tras una interrupción previa al resultado y los conflictos entre intentos concurrentes, sin perder snapshots ni duplicar resultados.
+   - [x] Registrar por referencia los errores al seleccionar una fuente, igual que los errores al resolverla; una referencia opcional no bloquea y una obligatoria sí.
    - [x] Validar el contexto y guardar el artefacto, el evento `context_ready` y el estado en una misma operación atómica.
 5. [x] Ampliar las pruebas sin red ni secretos: proveedores, directivas, Figma, snapshots, fallos opcionales integrados, reintento, conflicto concurrente y reanudación tras interrupción.
 6. [x] Documentar reglas y limitaciones actuales y cómo realizar la validación manual; ejecutar Prettier y `npm run check`.
