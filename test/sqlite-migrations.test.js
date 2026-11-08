@@ -9,7 +9,10 @@ import { migrateSqlite, SqliteRunRepository } from '../dist/index.js';
 const fixtureMigrations = [
   {
     version: 1,
-    up: (db) => db.exec('CREATE TABLE runs (id TEXT PRIMARY KEY, issue_id TEXT, version INTEGER, updated_at TEXT, state TEXT)'),
+    up: (db) =>
+      db.exec(
+        'CREATE TABLE runs (id TEXT PRIMARY KEY, issue_id TEXT, version INTEGER, updated_at TEXT, state TEXT)',
+      ),
   },
 ];
 

@@ -8,7 +8,8 @@ export interface SqliteMigration {
 const _migrations: readonly SqliteMigration[] = [
   {
     version: 1,
-    up: (db) => db.exec(`
+    up: (db) =>
+      db.exec(`
       CREATE TABLE runs (
         id TEXT PRIMARY KEY, issue_id TEXT NOT NULL, version INTEGER NOT NULL,
         updated_at TEXT NOT NULL, state TEXT NOT NULL
@@ -32,7 +33,9 @@ export function migrateSqlite(
 ): void {
   for (const [index, migration] of migrations.entries()) {
     if (migration.version !== index + 1) {
-      throw new Error('SQLite migrations must be consecutively numbered from 1');
+      throw new Error(
+        'SQLite migrations must be consecutively numbered from 1',
+      );
     }
   }
 
@@ -41,7 +44,9 @@ export function migrateSqlite(
     const row = db.prepare('PRAGMA user_version').get();
     const currentVersion = Number(row?.user_version);
     if (currentVersion > migrations.length) {
-      throw new Error(`Database schema version ${currentVersion} is newer than supported version ${migrations.length}`);
+      throw new Error(
+        `Database schema version ${currentVersion} is newer than supported version ${migrations.length}`,
+      );
     }
     for (const migration of migrations.slice(currentVersion)) {
       migration.up(db);
