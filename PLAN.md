@@ -178,14 +178,14 @@ El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar 
 
 ### M2 — Linear y contexto
 
-**Estado actual:** `src/application/context.ts` define los puertos genéricos y recoge un snapshot validado con el resultado de cada referencia. Los adaptadores Linear y Figma tienen pruebas simuladas, pero no se han validado con servicios reales. `src/application/prepare-context.ts` conecta la recuperación con un puerto de repositorio y persiste el snapshot y la transición de forma atómica. `docs/context-providers.md` y `docs/figma-context-source.md` documentan la configuración y las limitaciones conocidas. Sigue pendiente filtrar credenciales y datos sensibles del contenido antes de persistirlo; no usar la integración con datos sensibles hasta resolverlo.
+**Estado actual:** `src/application/context.ts` define los puertos genéricos y recoge un snapshot validado con el resultado de cada referencia. Los adaptadores Linear y Figma tienen pruebas simuladas, pero no se han validado con servicios reales. `src/application/prepare-context.ts` conecta la recuperación con un puerto de repositorio y persiste el snapshot y la transición de forma atómica. `docs/context-providers.md` y `docs/figma-context-source.md` documentan la configuración y las limitaciones conocidas.
 
 **Trabajo realizado y pendiente:**
 
 1. [ ] Completar y verificar la normalización de Linear:
    - [ ] Validar la consulta GraphQL, autenticación y paginación con una issue real y credenciales proporcionadas por el usuario; no guardar credenciales ni datos privados en el repositorio. Documentar cómo ejecutar la prueba y qué hacer si no hay acceso.
-   - [ ] Revisar cómo representar attachments y sus metadatos, descripción y criterios de aceptación sin perder información necesaria. Actualmente se conservan URL de attachments y solo se extraen listas bajo encabezados concretos; no inferir criterios silenciosamente cuando no existan.
-   - [ ] Revisar extracción y clasificación de enlaces a Figma y otros recursos visuales, incluidos formatos Markdown relevantes, deduplicación y directivas `required-context`; documentar las limitaciones o reglas adoptadas.
+   - [x] Revisar la representación actual: se conserva la descripción completa y las URL de attachments; solo se extraen listas bajo encabezados concretos, sin inferir criterios. Se aplaza recuperar metadatos adicionales de attachments hasta que exista un consumidor que los necesite.
+   - [x] Documentar las reglas actuales de extracción, deduplicación, selección de fuente y directivas `required-context`, así como las limitaciones de Markdown. Se aplaza un parser Markdown completo y la clasificación adicional hasta tener casos de uso concretos.
 2. [x] Implementar una fuente de contexto para Figma usando `ContextSource`, sin acoplar el dominio ni el caso de uso a Figma. Definir configuración, permisos y representación normalizada de la información recuperada; probar respuestas y errores simulados. Mantener extensible la integración para otras fuentes. La validación con Figma real sigue pendiente.
 3. [ ] Completar el contexto normalizado y reproducible:
    - [x] Conservar en `ContextSnapshot` la issue, el contenido resuelto, la obligatoriedad y el resultado de cada referencia, incluidos los fallos opcionales. `TaskContext` mantiene su representación anterior.
@@ -194,19 +194,22 @@ El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar 
 4. [ ] Integrar la recuperación de contexto con el workflow y la persistencia:
    - [x] Definir el puerto de repositorio necesario para el caso de uso sin depender directamente de SQLite; usar las operaciones atómicas y el control de versión existentes.
    - [x] Registrar el inicio de los intentos, sus resultados y los reintentos; conservar los fallos opcionales en el snapshot. Los mensajes de error de los proveedores no se persisten.
-   - [ ] Filtrar credenciales y datos sensibles del contenido y los enlaces antes de persistirlos.
+   - [x] Excluir del alcance el filtrado de credenciales y datos sensibles del contenido y los enlaces: se asume que Linear, Figma y el chat no contienen secretos ni tokens. El contenido se persiste sin filtrar.
    - [x] Ante un fallo obligatorio, registrar un motivo genérico y pasar a `needs_attention` sin emitir `context_ready`; conservar los fallos opcionales sin bloquear el workflow.
    - [x] Permitir y probar el reintento explícito desde `needs_attention` cuando el fallo ocurrió durante la recuperación inicial de contexto.
-   - [ ] Probar la recuperación tras interrupciones y conflictos de versión, sin perder snapshots ni duplicar resultados.
+   - [x] Probar la recuperación tras una interrupción previa al resultado y los conflictos entre intentos concurrentes, sin perder snapshots ni duplicar resultados.
    - [x] Validar el contexto y guardar el artefacto, el evento `context_ready` y el estado en una misma operación atómica.
-5. [ ] Ampliar las pruebas: ya hay pruebas simuladas de proveedores, directivas, Figma, snapshots y reintento con persistencia. Faltan casos adicionales de normalización, fallos opcionales integrados, conflictos e interrupciones. Mantenerlas sin red ni secretos.
-6. [ ] Mantener Prettier y `npm run check` al día; completar `docs/context-providers.md` con las reglas y limitaciones definitivas cuando se resuelvan los puntos pendientes.
+5. [x] Ampliar las pruebas sin red ni secretos: proveedores, directivas, Figma, snapshots, fallos opcionales integrados, reintento, conflicto concurrente y reanudación tras interrupción.
+6. [x] Documentar reglas y limitaciones actuales y cómo realizar la validación manual; ejecutar Prettier y `npm run check`.
+
+**Aplazamientos para continuar:** la actualización explícita de contexto se diseñará con planificación y aprobación en M3, de forma que invalide el trabajo dependiente. La validación con Linear y Figma reales requiere acceso y datos de prueba facilitados por el usuario; hasta entonces no se cumple plenamente la aceptación de M2. No se implementará detección ni filtrado de secretos en el contexto: el usuario es responsable de no incluirlos en Linear, Figma o el chat y de restringir severamente las credenciales de desarrollo.
 
 **Aceptación:** una issue real genera un contexto validado, persistido y reproducible; las referencias obligatorias inaccesibles bloquean el avance y sus fallos quedan registrados. La reanudación y los fallos opcionales están cubiertos por pruebas.
 
 ### M3 — Planificación y aprobación
 
 - [ ] Implementar el adaptador Pi.
+- [ ] Ejecutar el orquestador y los agentes en entornos separados; no poner automáticamente las credenciales del orquestador a disposición de los agentes. Definir y probar esta separación al integrar el runner.
 - [ ] Generar planes estructurados.
 - [ ] Guardar el plan como artefacto versionado.
 - [ ] Mostrar aprobación obligatoria desde Pi.
@@ -217,7 +220,7 @@ El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar 
 
 ### M4 — Developer y verificaciones
 
-- [ ] Ejecutar el developer dentro del worktree.
+- [ ] Ejecutar el developer en un entorno separado del orquestador, con el espacio de trabajo y las credenciales de desarrollo necesarios para el proyecto. Evaluar Docker Sandboxes o una VM sin asumir que Git worktrees proporciona aislamiento.
 - [ ] Conservar la sesión entre correcciones.
 - [ ] Ejecutar verificaciones deterministas.
 - [ ] Guardar resultados y evidencias.
