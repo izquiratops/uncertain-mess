@@ -201,6 +201,7 @@ El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar 
    - [x] Registrar por referencia los errores al seleccionar una fuente, igual que los errores al resolverla; una referencia opcional no bloquea y una obligatoria sí.
    - [x] Validar el contexto y guardar el artefacto, el evento `context_ready` y el estado en una misma operación atómica.
 5. [x] Ampliar las pruebas sin red ni secretos: proveedores, directivas, Figma, snapshots, fallos opcionales integrados, reintento, conflicto concurrente y reanudación tras interrupción.
+   - [x] Preparar pruebas de integración optativas con Linear y Figma reales y SQLite temporal, incluidas la paginación y la reutilización del snapshot tras reiniciar. Los casos sin configuración se omiten; no constituyen una validación real.
 6. [x] Documentar reglas y limitaciones actuales y cómo realizar la validación manual; ejecutar Prettier y `npm run check`.
 
 **Aplazamientos para continuar:** la actualización explícita de contexto se diseñará con planificación y aprobación en M3, de forma que invalide el trabajo dependiente. La validación con Linear y Figma reales requiere acceso y datos de prueba facilitados por el usuario; hasta entonces no se cumple plenamente la aceptación de M2. No se implementará detección ni filtrado de secretos en el contexto: el usuario es responsable de no incluirlos en Linear, Figma o el chat y de restringir severamente las credenciales de desarrollo.
