@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "npm run build && node --test test/*.test.js",
+    "test:integration": "npm run build && node --env-file-if-exists=.env --test test/integration/*.test.js",
     "check": "npm run typecheck && npm run lint && npm test"
   },
   "keywords": [],
