@@ -1,38 +1,38 @@
-# Guía para agentes
+# Agent guide
 
-## Proyecto
+## Project
 
-Issue-to-PR es un orquestador de workflows en TypeScript cuyo objetivo es transformar tareas de herramientas de gestión en draft Pull Requests mediante procesos iniciados desde un chat. El diseño y las fases previstas están en `PLAN.md`; no presupongas que todo lo descrito allí ya está implementado.
+Issue-to-PR is a workflow orchestrator in TypeScript whose goal is to transform tasks from management tools into draft Pull Requests through processes started from a chat. The design and planned phases are in `PLAN.md`; do not assume that everything described there is already implemented.
 
-## Estructura
+## Structure
 
-- `src/domain/`: contratos y lógica del workflow, independientes de SDKs y persistencia.
-- `src/application/`: preparación y tratamiento del contexto.
-- `src/adapters/`: integraciones con Linear, Figma, SQLite y Git worktrees.
-- `src/index.ts`: exportaciones públicas.
-- `test/`: pruebas con el test runner de Node.js.
-- `docs/`: documentación específica de proveedores de contexto, migraciones y worktrees.
-- `dist/`: salida generada de la compilación; modifica las fuentes en `src/`.
+- `src/domain/`: workflow contracts and logic, independent of SDKs and persistence.
+- `src/application/`: context preparation and handling.
+- `src/adapters/`: integrations with Linear, Figma, SQLite, and Git worktrees.
+- `src/index.ts`: public exports.
+- `test/`: tests with the Node.js test runner.
+- `docs/`: provider-specific documentation for context providers, migrations, and worktrees.
+- `dist/`: generated build output; modify the sources in `src/`.
 
-## Entorno y comandos
+## Environment and commands
 
-Se requiere Node.js >= 22.13.0. Instala las dependencias con `npm ci` cuando sea necesario.
+Node.js >= 22.13.0 is required. Install dependencies with `npm ci` when necessary.
 
-- `npm run build`: genera `dist/index.js` con esbuild.
-- `npm run typecheck`: comprueba los tipos sin emitir archivos.
-- `npm run lint`: ejecuta ESLint.
-- `npm run format`: aplica Prettier al proyecto.
-- `npm test`: compila y ejecuta las pruebas.
-- `npm run check`: ejecuta typecheck, lint y pruebas.
+- `npm run build`: generates `dist/index.js` with esbuild.
+- `npm run typecheck`: checks types without emitting files.
+- `npm run lint`: runs ESLint.
+- `npm run format`: applies Prettier to the project.
+- `npm test`: compiles and runs the tests.
+- `npm run check`: runs typecheck, lint, and tests.
 
-## Convenciones de código
+## Code conventions
 
-- Separa con líneas en blanco las etapas y responsabilidades distintas; no es necesario separar cada sentencia.
-- Da nombre a expresiones intermedias cuando ayude a explicar su propósito, especialmente si combinan varias operaciones.
-- Extrae funciones para operaciones con una responsabilidad reconocible, no solo para reducir el número de líneas.
-- Ajusta el detalle de los nombres a su alcance: en callbacks o usos inmediatos se admiten nombres breves si son inequívocos; cuanto mayor sea el alcance o la distancia entre declaración y uso, más descriptivo debe ser el nombre. Evita abreviaturas ambiguas incluso en ámbitos pequeños.
-- En consultas GraphQL, escribe cada campo en su propia línea para facilitar su lectura y revisión.
+- Separate distinct stages and responsibilities with blank lines; it is not necessary to separate every statement.
+- Name intermediate expressions when it helps explain their purpose, especially if they combine several operations.
+- Extract functions for operations with a recognizable responsibility, not only to reduce the number of lines.
+- Adjust the detail of names to their scope: in callbacks or immediate uses, brief names are acceptable if they are unambiguous; the larger the scope or the distance between declaration and use, the more descriptive the name must be. Avoid ambiguous abbreviations even in small scopes.
+- In GraphQL queries, write each field on its own line to make them easier to read and review.
 
-## Validación de cambios
+## Change validation
 
-Al terminar cambios, ejecuta `npm run format` y después `npm run check`.
+When you finish changes, run `npm run format` and then `npm run check`.
