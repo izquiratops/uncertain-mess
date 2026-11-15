@@ -37,7 +37,10 @@ The system must be predictable, recoverable after failures, easily extensible, a
 - The main repository directory stays on the `main` branch.
 - Each issue works on an independent branch and worktree.
 - Recovering existing worktrees associated with an issue is allowed.
-- Worktrees are not deleted automatically when the workflow finishes.
+- A workflow run does not delete its worktree or branch, so interrupted or retried work can resume.
+- When the task is completed, a cleanup step removes all the worktrees and branches created for that task and deletes their ownership records.
+- Cleanup is not tied to a single merge: a task can span multiple PRs, so it runs only after the task reaches its completed state.
+- Cleanup is safe and idempotent: it takes the same locks as creation, can resume after an interruption, and never discards uncommitted work or branches not merged into `main`.
 - The `main` branch is never modified from an agentic run.
 - Concurrent operations on the same worktree are blocked.
 
@@ -171,6 +174,8 @@ Do not use Pi's history as the source of truth for business transitions.
 - [x] Keep the main checkout on `main` intact during manager operations.
 - [x] Add locking by issue/worktree.
 - [x] Test manager recovery after a restart.
+- [ ] Implement task cleanup: after a task is completed, remove the worktrees and branches created for the task and delete their ownership records.
+- [ ] Test cleanup: reuse the creation locks, retry idempotently after an interruption, and preserve worktrees with uncommitted changes or branches not merged into `main`.
 
 The Git adapter covers basic creation, reuse, and locking. Defer the rest of this integration until a workflow consumer exists: then define the port according to its needs and test persistence and recovery end to end. Do not yet assume that Git worktrees will be the only isolation mechanism; a VM could replace or complement it. Recovery from partial interruptions and the base commit are still pending and must be resolved before using the adapter in a real workflow.
 
@@ -267,4 +272,3 @@ The Git adapter covers basic creation, reuse, and locking. Defer the rest of thi
 - [ ] Ensure that Slack errors do not block publication.
 
 **Acceptance:** a workflow can progress without Slack; if configured, its events appear grouped in one conversation.
-
