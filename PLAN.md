@@ -1,86 +1,86 @@
 # PLAN.md — Issue-to-PR Agent Workflow
 
-## Objetivo
+## Goal
 
-Construir un orquestador de workflows en TypeScript que transforme una issue de Linear en una draft Pull Request mediante agentes Pi supervisados desde Herdr.
+Build a workflow orchestrator in TypeScript that transforms a Linear issue into a draft Pull Request through Pi agents supervised from Herdr.
 
-El sistema debe ser predecible, recuperable tras fallos, fácilmente extensible y mantener una arquitectura hexagonal ligera.
+The system must be predictable, recoverable after failures, easily extensible, and maintain a lightweight hexagonal architecture.
 
-## Principios de diseño
+## Design principles
 
-1. **Deterministic outside, agentic inside.** Las transiciones, las verificaciones y las aprobaciones las determina código; las decisiones de implementación corresponden a los agentes.
-2. **TypeScript first.** El dominio, la aplicación y los adaptadores se implementan en TypeScript. Solo se permite JavaScript de compatibilidad cuando el runtime lo requiera.
-3. **Minimal abstractions.** Introducir interfaces únicamente para separar responsabilidades reales o permitir pruebas.
-4. **No framework dependency in the domain.** El dominio no debe importar SDKs de Pi, Linear, Slack, GitHub ni librerías de persistencia.
-5. **Explicit state.** Ninguna decisión importante debe depender exclusivamente del historial de una conversación.
-6. **Recoverable operations.** Las acciones externas deben poder reconciliarse tras un reinicio, evitando duplicaciones.
-7. **Tests before expansion.** Cada fase debe quedar validada antes de añadir funcionalidades.
+1. **Deterministic outside, agentic inside.** Code determines transitions, verifications, and approvals; implementation decisions belong to the agents.
+2. **TypeScript first.** The domain, application, and adapters are implemented in TypeScript. Compatibility JavaScript is only allowed when the runtime requires it.
+3. **Minimal abstractions.** Introduce interfaces only to separate real responsibilities or enable testing.
+4. **No framework dependency in the domain.** The domain must not import Pi, Linear, Slack, GitHub SDKs, or persistence libraries.
+5. **Explicit state.** No important decision should depend exclusively on the history of a conversation.
+6. **Recoverable operations.** External actions must be reconcilable after a restart, avoiding duplications.
+7. **Tests before expansion.** Each phase must be validated before adding functionality.
 
-## Requisitos funcionales
+## Functional requirements
 
-### Inicio
+### Start
 
-- El usuario inicia manualmente un workflow desde Pi indicando una issue de Linear.
-- Se obtiene la descripción, los criterios de aceptación, attachments y referencias.
-- Se recupera el contexto de Figma cuando existan enlaces relevantes.
-- La ausencia de contexto obligatorio bloquea la implementación.
+- The user manually starts a workflow from Pi by specifying a Linear issue.
+- The description, acceptance criteria, attachments, and references are retrieved.
+- Figma context is retrieved when relevant links exist.
+- The absence of mandatory context blocks implementation.
 
-### Planificación
+### Planning
 
-- Un agente genera un plan técnico estructurado.
-- El usuario debe aprobar el plan siempre, antes de modificar el código.
-- Un plan rechazado puede revisarse y presentarse de nuevo.
-- Una modificación sustancial del alcance invalida la aprobación.
+- An agent generates a structured technical plan.
+- The user must always approve the plan before modifying the code.
+- A rejected plan can be revised and presented again.
+- A substantial change in scope invalidates the approval.
 
 ### Worktrees
 
-- El directorio principal del repositorio permanece en la rama `main`.
-- Cada issue trabaja en una rama y un worktree independientes.
-- Se permite recuperar worktrees existentes asociados a una issue.
-- Los worktrees no se eliminan automáticamente al terminar el workflow.
-- Nunca se modifica la rama `main` desde una ejecución agéntica.
-- Las operaciones concurrentes sobre el mismo worktree se bloquean.
+- The main repository directory stays on the `main` branch.
+- Each issue works on an independent branch and worktree.
+- Recovering existing worktrees associated with an issue is allowed.
+- Worktrees are not deleted automatically when the workflow finishes.
+- The `main` branch is never modified from an agentic run.
+- Concurrent operations on the same worktree are blocked.
 
-### Implementación
+### Implementation
 
-- Un solo agente developer conserva su contexto a través de las iteraciones.
-- El developer implementa el plan aprobado, modifica tests y corrige findings.
-- No puede publicar directamente la PR.
-- El workflow limita los ciclos de corrección y permite intervención humana.
+- A single developer agent keeps its context across iterations.
+- The developer implements the approved plan, modifies tests, and fixes findings.
+- It cannot publish the PR directly.
+- The workflow limits correction cycles and allows human intervention.
 
-### Verificación y review
+### Verification and review
 
-- Los comandos de verificación se definen en el repositorio.
-- Lint, tests, typecheck y build deben pasar cuando sean aplicables.
-- Tres reviewers independientes evalúan:
-  - Correctness y regresiones.
-  - Cobertura y calidad de tests.
-  - Complejidad innecesaria, YAGNI y simplicidad.
-- Cada reviewer devuelve un resultado estructurado validado con Zod.
-- Las reviews deben referirse al mismo snapshot del código.
-- Cualquier cambio posterior invalida las aprobaciones anteriores.
+- Verification commands are defined in the repository.
+- Lint, tests, typecheck, and build must pass when applicable.
+- Three independent reviewers evaluate:
+  - Correctness and regressions.
+  - Test coverage and quality.
+  - Unnecessary complexity, YAGNI, and simplicity.
+- Each reviewer returns a structured result validated with Zod.
+- Reviews must refer to the same code snapshot.
+- Any subsequent change invalidates previous approvals.
 
-### Publicación
+### Publication
 
-- El sistema verifica nuevamente el snapshot aprobado.
-- Publica los cambios mediante un commit y una rama de feature.
-- Crea o reutiliza una draft PR.
-- Registra la URL de la PR y la relaciona con la issue.
-- La publicación debe ser recuperable e idempotente.
+- The system verifies the approved snapshot again.
+- It publishes the changes through a commit and a feature branch.
+- It creates or reuses a draft PR.
+- It records the PR URL and links it to the issue.
+- Publication must be recoverable and idempotent.
 
-### Slack (opcional)
+### Slack (optional)
 
-- Publicar eventos importantes en un thread por workflow.
-- Mostrar planificación, aprobaciones pendientes, fallos y PR publicada.
-- Almacenar el identificador del thread para reanudar notificaciones.
-- La ausencia de Slack nunca debe bloquear el workflow.
-- No implementar aprobaciones interactivas desde Slack en la primera versión.
+- Publish important events in one thread per workflow.
+- Show planning, pending approvals, failures, and published PR.
+- Store the thread identifier to resume notifications.
+- The absence of Slack must never block the workflow.
+- Do not implement interactive approvals from Slack in the first version.
 
-## Arquitectura
+## Architecture
 
 ### Domain
 
-Contiene:
+Contains:
 
 - `WorkflowState`
 - `WorkflowEvent`
@@ -88,16 +88,16 @@ Contiene:
 - `ImplementationPlan`
 - `ReviewResult`
 - `VerificationResult`
-- Reglas de transición y aprobación
-- Políticas de reintentos y complejidad
+- Transition and approval rules
+- Retry and complexity policies
 
-El dominio debe ser puro y testeable sin servicios externos.
+The domain must be pure and testable without external services.
 
 ### Application
 
-Implementa el caso de uso `IssueToPR` y coordina las etapas mediante puertos.
+Implements the `IssueToPR` use case and coordinates the stages through ports.
 
-Puertos iniciales:
+Initial ports:
 
 - `IssueProvider`
 - `DesignProvider`
@@ -108,11 +108,11 @@ Puertos iniciales:
 - `RunRepository`
 - `EventPublisher`
 
-Evitar crear un puerto para cada función individual.
+Avoid creating a port for every individual function.
 
 ### Adapters
 
-Implementar adaptadores específicos:
+Implement specific adapters:
 
 - Linear GraphQL
 - Figma MCP
@@ -122,149 +122,149 @@ Implementar adaptadores específicos:
 - SQLite
 - Slack Web API
 
-La aplicación recibe sus dependencias mediante construcción explícita.
+The application receives its dependencies through explicit construction.
 
 ### Persistence
 
-Utilizar SQLite inicialmente.
+Use SQLite initially.
 
-Persistir:
+Persist:
 
-- Workflow ID e issue ID.
-- Estado actual, versión y timestamp.
-- Branch, worktree y commit base.
-- Plan aprobado y su versión.
-- Referencias a artefactos.
-- Intentos de ejecución y review.
-- Snapshot de código revisado.
-- URL y estado de publicación de la PR.
-- Identificador de thread de Slack.
-- Historial de eventos y errores relevantes.
+- Workflow ID and issue ID.
+- Current state, version, and timestamp.
+- Branch, worktree, and base commit.
+- Approved plan and its version.
+- References to artifacts.
+- Execution and review attempts.
+- Reviewed code snapshot.
+- PR URL and publication state.
+- Slack thread identifier.
+- History of events and relevant errors.
 
-Utilizar un `RunRepository` que exponga operaciones atómicas de carga, creación y actualización con control de versión.
+Use a `RunRepository` that exposes atomic load, create, and update operations with version control.
 
-No usar el historial de Pi como fuente de verdad de las transiciones del negocio.
+Do not use Pi's history as the source of truth for business transitions.
 
 ## Milestones
 
-### M0 — Inicialización y contratos
+### M0 — Initialization and contracts
 
-- [x] Inicializar proyecto Node.js + TypeScript en strict mode.
-- [x] Configurar esbuild, el runner de tests de Node, ESLint y scripts de build y typecheck (sin Vitest).
-- [x] Definir contratos iniciales con Zod e inferir tipos.
-- [x] Implementar la máquina de estados pura.
-- [x] Crear tests de transiciones válidas e inválidas.
+- [x] Initialize a Node.js + TypeScript project in strict mode.
+- [x] Configure esbuild, the Node test runner, ESLint, and build and typecheck scripts (without Vitest).
+- [x] Define initial contracts with Zod and infer types.
+- [x] Implement the pure state machine.
+- [x] Create tests for valid and invalid transitions.
 
-**Aceptación:** todas las transiciones se pueden probar sin Pi ni APIs externas.
+**Acceptance:** all transitions can be tested without Pi or external APIs.
 
-### M1 — Persistencia y worktrees
+### M1 — Persistence and worktrees
 
-- [x] Implementar repositorio SQLite.
-- [x] Guardar estado, versiones, eventos y artefactos.
-- [ ] Implementar `WorktreeManager`.
-  - [ ] Probar interrupciones durante la creación y definir cómo recuperar ramas o worktrees parcialmente creados.
-  - [ ] Devolver el commit base para que el workflow pueda persistirlo.
-  - [ ] Conectar el manager con la persistencia para guardar y restaurar los datos del worktree.
-  - [ ] Probar la interrupción y reanudación de un workflow persistido sin perder estado ni sobrescribir trabajo.
-  - [ ] Definir el puerto `WorktreeManager` para que la aplicación no dependa directamente de Git.
-- [x] Detectar worktrees existentes por issue y configuración.
-- [x] Mantener intacto el checkout principal en `main` durante las operaciones del manager.
-- [x] Añadir bloqueo por issue/worktree.
-- [x] Probar recuperación del manager tras reinicio.
+- [x] Implement the SQLite repository.
+- [x] Store state, versions, events, and artifacts.
+- [ ] Implement `WorktreeManager`.
+  - [ ] Test interruptions during creation and define how to recover partially created branches or worktrees.
+  - [ ] Return the base commit so the workflow can persist it.
+  - [ ] Connect the manager with persistence to store and restore worktree data.
+  - [ ] Test the interruption and resumption of a persisted workflow without losing state or overwriting work.
+  - [ ] Define the `WorktreeManager` port so the application does not depend directly on Git.
+- [x] Detect existing worktrees by issue and configuration.
+- [x] Keep the main checkout on `main` intact during manager operations.
+- [x] Add locking by issue/worktree.
+- [x] Test manager recovery after a restart.
 
-El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar el resto de esta integración hasta que exista un consumidor del workflow: entonces definir el puerto según sus necesidades y probar la persistencia y recuperación de extremo a extremo. No asumir todavía que Git worktrees será el único mecanismo de aislamiento; una VM podría reemplazarlo o complementarlo. La recuperación de interrupciones parciales y el commit base siguen pendientes y deben resolverse antes de usar el adaptador en un workflow real.
+The Git adapter covers basic creation, reuse, and locking. Defer the rest of this integration until a workflow consumer exists: then define the port according to its needs and test persistence and recovery end to end. Do not yet assume that Git worktrees will be the only isolation mechanism; a VM could replace or complement it. Recovery from partial interruptions and the base commit are still pending and must be resolved before using the adapter in a real workflow.
 
-**Aceptación:** el workflow puede interrumpirse y reanudarse sin perder el estado ni sobrescribir un worktree.
+**Acceptance:** the workflow can be interrupted and resumed without losing state or overwriting a worktree.
 
-### M2 — Linear y contexto
+### M2 — Linear and context
 
-**Estado actual:** `src/application/context.ts` define los puertos genéricos y recoge un snapshot validado con el resultado de cada referencia. Los adaptadores Linear y Figma tienen pruebas simuladas, pero no se han validado con servicios reales. `src/application/prepare-context.ts` conecta la recuperación con un puerto de repositorio y persiste el snapshot y la transición de forma atómica. `docs/context-providers.md` y `docs/figma-context-source.md` documentan la configuración y las limitaciones conocidas.
+**Current status:** `src/application/context.ts` defines the generic ports and collects a validated snapshot with the result of each reference. The Linear and Figma adapters have simulated tests, but they have not been validated with real services. `src/application/prepare-context.ts` connects retrieval with a repository port and persists the snapshot and the transition atomically. `docs/context-providers.md` and `docs/figma-context-source.md` document the configuration and known limitations.
 
-**Trabajo realizado y pendiente:**
+**Work done and pending:**
 
-1. [ ] Completar y verificar la normalización de Linear:
-   - [ ] Validar la consulta GraphQL, autenticación y paginación con una issue real y credenciales proporcionadas por el usuario; no guardar credenciales ni datos privados en el repositorio. Documentar cómo ejecutar la prueba y qué hacer si no hay acceso.
-   - [x] Revisar la representación actual: se conserva la descripción completa y las URL de attachments; solo se extraen listas bajo encabezados concretos, sin inferir criterios. Se aplaza recuperar metadatos adicionales de attachments hasta que exista un consumidor que los necesite.
-   - [x] Documentar las reglas actuales de extracción, deduplicación, selección de fuente y directivas `required-context`, así como las limitaciones de Markdown. Se aplaza un parser Markdown completo y la clasificación adicional hasta tener casos de uso concretos.
-2. [x] Implementar una fuente de contexto para Figma usando `ContextSource`, sin acoplar el dominio ni el caso de uso a Figma. Definir configuración, permisos y representación normalizada de la información recuperada; probar respuestas y errores simulados. Mantener extensible la integración para otras fuentes. La validación con Figma real sigue pendiente.
-   - [ ] Investigar e implementar una alternativa local, como el servidor MCP de Figma, para recuperar contexto de archivos y nodos cuando la API HTTP alcance sus límites. Verificar primero sus capacidades, requisitos de acceso y límites: MCP no garantiza evitar las cuotas ni funcionar sin conexión. Mantener la API HTTP como opción configurable y definir selección o fallback explícitos, sin ocultar errores ni alterar el bloqueo de referencias obligatorias. Documentar configuración, permisos y diferencias de contenido; probar la normalización, fallos, selección y persistencia del snapshot con respuestas simuladas y validar la integración real cuando sea posible.
-3. [ ] Completar el contexto normalizado y reproducible:
-   - [x] Conservar en `ContextSnapshot` la issue, el contenido resuelto, la obligatoriedad y el resultado de cada referencia, incluidos los fallos opcionales. `TaskContext` mantiene su representación anterior.
-   - [x] Persistir un snapshot validado y versionado como artefacto; reutilizarlo en `planning` y crear una nueva versión al reintentar una recuperación fallida.
-   - [ ] Definir e implementar cómo solicitar una actualización explícita del contexto ya aceptado y cómo invalidar el trabajo posterior que dependa de la versión anterior.
-4. [ ] Integrar la recuperación de contexto con el workflow y la persistencia:
-   - [x] Definir el puerto de repositorio necesario para el caso de uso sin depender directamente de SQLite; usar las operaciones atómicas y el control de versión existentes.
-   - [x] Registrar el inicio de los intentos, sus resultados y los reintentos; conservar los fallos opcionales en el snapshot. Los mensajes de error de los proveedores no se persisten.
-   - [x] Excluir del alcance el filtrado de credenciales y datos sensibles del contenido y los enlaces: se asume que Linear, Figma y el chat no contienen secretos ni tokens. El contenido se persiste sin filtrar.
-   - [x] Ante un fallo obligatorio, registrar un motivo genérico y pasar a `needs_attention` sin emitir `context_ready`; conservar los fallos opcionales sin bloquear el workflow.
-   - [x] Permitir y probar el reintento explícito desde `needs_attention` cuando el fallo ocurrió durante la recuperación inicial de contexto.
-   - [x] Probar la recuperación tras una interrupción previa al resultado y los conflictos entre intentos concurrentes, sin perder snapshots ni duplicar resultados.
-   - [x] Registrar por referencia los errores al seleccionar una fuente, igual que los errores al resolverla; una referencia opcional no bloquea y una obligatoria sí.
-   - [x] Validar el contexto y guardar el artefacto, el evento `context_ready` y el estado en una misma operación atómica.
-5. [x] Ampliar las pruebas sin red ni secretos: proveedores, directivas, Figma, snapshots, fallos opcionales integrados, reintento, conflicto concurrente y reanudación tras interrupción.
-   - [x] Preparar pruebas de integración optativas con Linear y Figma reales y SQLite temporal, incluidas la paginación y la reutilización del snapshot tras reiniciar. Los casos sin configuración se omiten; no constituyen una validación real.
-6. [x] Documentar reglas y limitaciones actuales y cómo realizar la validación manual; ejecutar Prettier y `npm run check`.
+1. [ ] Complete and verify Linear normalization:
+   - [ ] Validate the GraphQL query, authentication, and pagination with a real issue and credentials provided by the user; do not store credentials or private data in the repository. Document how to run the test and what to do if there is no access.
+   - [x] Review the current representation: the full description and attachment URLs are preserved; lists are only extracted under specific headings, without inferring criteria. Retrieving additional attachment metadata is deferred until a consumer needs it.
+   - [x] Document the current extraction, deduplication, source selection, and `required-context` directive rules, as well as the Markdown limitations. A full Markdown parser and additional classification are deferred until concrete use cases exist.
+2. [x] Implement a context source for Figma using `ContextSource`, without coupling the domain or the use case to Figma. Define configuration, permissions, and normalized representation of the retrieved information; test simulated responses and errors. Keep the integration extensible for other sources. Validation with real Figma is still pending.
+   - [ ] Investigate and implement a local alternative, such as the Figma MCP server, to retrieve file and node context when the HTTP API reaches its limits. First verify its capabilities, access requirements, and limits: MCP does not guarantee avoiding quotas or working offline. Keep the HTTP API as a configurable option and define explicit selection or fallback, without hiding errors or altering the blocking of mandatory references. Document configuration, permissions, and content differences; test normalization, failures, selection, and snapshot persistence with simulated responses and validate the real integration when possible.
+3. [ ] Complete the normalized and reproducible context:
+   - [x] Keep in `ContextSnapshot` the issue, the resolved content, the mandatory status, and the result of each reference, including optional failures. `TaskContext` keeps its previous representation.
+   - [x] Persist a validated and versioned snapshot as an artifact; reuse it in `planning` and create a new version when retrying a failed retrieval.
+   - [ ] Define and implement how to request an explicit update of the already accepted context and how to invalidate subsequent work that depends on the previous version.
+4. [ ] Integrate context retrieval with the workflow and persistence:
+   - [x] Define the repository port needed for the use case without depending directly on SQLite; use the existing atomic operations and version control.
+   - [x] Record the start of attempts, their results, and retries; keep optional failures in the snapshot. Provider error messages are not persisted.
+   - [x] Exclude credential and sensitive data filtering from the scope for content and links: it is assumed that Linear, Figma, and the chat do not contain secrets or tokens. Content is persisted unfiltered.
+   - [x] On a mandatory failure, record a generic reason and move to `needs_attention` without emitting `context_ready`; keep optional failures without blocking the workflow.
+   - [x] Allow and test explicit retry from `needs_attention` when the failure occurred during initial context retrieval.
+   - [x] Test recovery after an interruption before the result and conflicts between concurrent attempts, without losing snapshots or duplicating results.
+   - [x] Record per reference the errors when selecting a source, just like the errors when resolving it; an optional reference does not block and a mandatory one does.
+   - [x] Validate the context and save the artifact, the `context_ready` event, and the state in a single atomic operation.
+5. [x] Expand the tests without network or secrets: providers, directives, Figma, snapshots, integrated optional failures, retry, concurrent conflict, and resumption after interruption.
+   - [x] Prepare optional integration tests with real Linear and Figma and a temporary SQLite, including pagination and snapshot reuse after a restart. Cases without configuration are skipped; they do not constitute real validation.
+6. [x] Document current rules and limitations and how to perform manual validation; run Prettier and `npm run check`.
 
-**Aplazamientos para continuar:** la actualización explícita de contexto se diseñará con planificación y aprobación en M3, de forma que invalide el trabajo dependiente. La validación con Linear y Figma reales requiere acceso y datos de prueba facilitados por el usuario; hasta entonces no se cumple plenamente la aceptación de M2. No se implementará detección ni filtrado de secretos en el contexto: el usuario es responsable de no incluirlos en Linear, Figma o el chat y de restringir severamente las credenciales de desarrollo.
+**Deferrals to continue:** the explicit context update will be designed with planning and approval in M3, so that it invalidates dependent work. Validation with real Linear and Figma requires access and test data provided by the user; until then, the M2 acceptance is not fully met. No secret detection or filtering will be implemented in the context: the user is responsible for not including them in Linear, Figma, or the chat and for severely restricting development credentials.
 
-**Aceptación:** una issue real genera un contexto validado, persistido y reproducible; las referencias obligatorias inaccesibles bloquean el avance y sus fallos quedan registrados. La reanudación y los fallos opcionales están cubiertos por pruebas.
+**Acceptance:** a real issue generates a validated, persisted, and reproducible context; inaccessible mandatory references block progress and their failures are recorded. Resumption and optional failures are covered by tests.
 
-### M3 — Planificación y aprobación
+### M3 — Planning and approval
 
-- [ ] Implementar el adaptador Pi.
-- [ ] Ejecutar el orquestador y los agentes en entornos separados; no poner automáticamente las credenciales del orquestador a disposición de los agentes. Definir y probar esta separación al integrar el runner.
-- [ ] Generar planes estructurados.
-- [ ] Guardar el plan como artefacto versionado.
-- [ ] Mostrar aprobación obligatoria desde Pi.
-- [ ] Manejar rechazos y revisiones.
-- [ ] Registrar explícitamente el plan aprobado.
+- [ ] Implement the Pi adapter.
+- [ ] Run the orchestrator and the agents in separate environments; do not automatically make the orchestrator credentials available to the agents. Define and test this separation when integrating the runner.
+- [ ] Generate structured plans.
+- [ ] Store the plan as a versioned artifact.
+- [ ] Show mandatory approval from Pi.
+- [ ] Handle rejections and revisions.
+- [ ] Explicitly record the approved plan.
 
-**Aceptación:** ningún agente modifica código sin aprobación válida.
+**Acceptance:** no agent modifies code without valid approval.
 
-### M4 — Developer y verificaciones
+### M4 — Developer and verifications
 
-- [ ] Ejecutar el developer en un entorno separado del orquestador, con el espacio de trabajo y las credenciales de desarrollo necesarios para el proyecto. Evaluar Docker Sandboxes o una VM sin asumir que Git worktrees proporciona aislamiento.
-- [ ] Conservar la sesión entre correcciones.
-- [ ] Ejecutar verificaciones deterministas.
-- [ ] Guardar resultados y evidencias.
-- [ ] Limitar reintentos.
-- [ ] Añadir tests de fallos y reanudación.
+- [ ] Run the developer in an environment separate from the orchestrator, with the workspace and development credentials needed for the project. Evaluate Docker Sandboxes or a VM without assuming that Git worktrees provide isolation.
+- [ ] Keep the session across corrections.
+- [ ] Run deterministic verifications.
+- [ ] Store results and evidence.
+- [ ] Limit retries.
+- [ ] Add failure and resumption tests.
 
-**Aceptación:** una verificación fallida impide avanzar.
+**Acceptance:** a failed verification prevents progress.
 
-### M5 — Reviews independientes
+### M5 — Independent reviews
 
-- [ ] Implementar correctness reviewer.
-- [ ] Implementar test coverage reviewer.
-- [ ] Implementar unnecessary complexity reviewer.
-- [ ] Ejecutarlos en paralelo sobre el mismo snapshot.
-- [ ] Validar resultados con Zod.
-- [ ] Devolver findings al developer.
-- [ ] Invalidar reviews cuando cambie el código.
-- [ ] Repetir verification y review después de las correcciones.
+- [ ] Implement the correctness reviewer.
+- [ ] Implement the test coverage reviewer.
+- [ ] Implement the unnecessary complexity reviewer.
+- [ ] Run them in parallel on the same snapshot.
+- [ ] Validate results with Zod.
+- [ ] Return findings to the developer.
+- [ ] Invalidate reviews when the code changes.
+- [ ] Repeat verification and review after corrections.
 
-**Aceptación:** solo se obtiene `ready_for_pr` si los tres reviewers aprueban el mismo snapshot verificado.
+**Acceptance:** `ready_for_pr` is only reached if the three reviewers approve the same verified snapshot.
 
-### M6 — Publicación GitHub
+### M6 — GitHub publication
 
-- [ ] Verificar identidad del snapshot aprobado.
-- [ ] Preparar commit y push.
-- [ ] Detectar PR existente.
-- [ ] Crear draft PR cuando no exista.
-- [ ] Registrar operación de publicación y resultado.
-- [ ] Recuperar fallos parciales sin duplicar PRs.
-- [ ] Enlazar la PR con Linear cuando las credenciales lo permitan.
+- [ ] Verify the identity of the approved snapshot.
+- [ ] Prepare commit and push.
+- [ ] Detect an existing PR.
+- [ ] Create a draft PR when none exists.
+- [ ] Record the publication operation and result.
+- [ ] Recover partial failures without duplicating PRs.
+- [ ] Link the PR with Linear when credentials allow it.
 
-**Aceptación:** reintentar publicación no duplica commits innecesarios ni crea dos PRs para la misma ejecución.
+**Acceptance:** retrying publication does not duplicate unnecessary commits or create two PRs for the same run.
 
 ### M7 — Slack
 
-- [ ] Crear `SlackEventPublisher`.
-- [ ] Generar un thread por workflow.
-- [ ] Notificar: started, awaiting_approval, review_failed, needs_attention, completed.
-- [ ] Persistir `channel` y `thread_ts`.
-- [ ] Implementar reintentos y detección de mensajes ya enviados.
-- [ ] Asegurar que los errores de Slack no bloquean publicación.
+- [ ] Create `SlackEventPublisher`.
+- [ ] Generate one thread per workflow.
+- [ ] Notify: started, awaiting_approval, review_failed, needs_attention, completed.
+- [ ] Persist `channel` and `thread_ts`.
+- [ ] Implement retries and detection of already-sent messages.
+- [ ] Ensure that Slack errors do not block publication.
 
-**Aceptación:** un workflow puede progresar sin Slack; si está configurado, sus eventos aparecen agrupados en una conversación.
+**Acceptance:** a workflow can progress without Slack; if configured, its events appear grouped in one conversation.
 
