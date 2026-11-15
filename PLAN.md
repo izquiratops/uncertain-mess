@@ -268,7 +268,3 @@ The Git adapter covers basic creation, reuse, and locking. Defer the rest of thi
 
 **Acceptance:** a workflow can progress without Slack; if configured, its events appear grouped in one conversation.
 
-### M8 — Pi Durable Evaluation
-
-- [ ] Create an independent prototype of `DurableAgentRunner`.
-- [ ] Pro
