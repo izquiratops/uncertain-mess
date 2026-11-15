@@ -268,7 +268,3 @@ El adaptador Git cubre la creación, reutilización y bloqueo básicos. Aplazar 
 
 **Aceptación:** un workflow puede progresar sin Slack; si está configurado, sus eventos aparecen agrupados en una conversación.
 
-### M8 — Evaluación de Pi Durable
-
-- [ ] Crear un prototipo independiente de `DurableAgentRunner`.
-- [ ] Pro
